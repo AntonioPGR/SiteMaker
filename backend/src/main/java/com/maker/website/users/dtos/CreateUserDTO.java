@@ -8,9 +8,6 @@ public record CreateUserDTO(
         String name,
         String password,
         String email,
-        String cellphone,
-        String cpf,
-        UserTypeENUM type,
-        LocalDate birthDate
+        String cpf
 ) {
 }

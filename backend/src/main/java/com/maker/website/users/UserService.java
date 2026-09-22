@@ -5,11 +5,13 @@ import com.maker.website.users.dtos.UpdateUserDTO;
 import com.maker.website.users.dtos.UserResponseDTO;
 import com.maker.website.users.enums.UserRoleENUM;
 import com.maker.website.users.enums.UserStatusENUM;
+import com.maker.website.users.enums.UserTypeENUM;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -24,9 +26,9 @@ public class UserService {
                 .stream().map(UserResponseDTO::new).toList();
     }
 
-    public UserResponseDTO getUserById(Long requestedId, Long authenticatedId) {
-        UserEntity authenticatedUser = findActiveUserById(authenticatedId);
-        requireOwnerOrAdmin(authenticatedUser, requestedId);
+    public UserResponseDTO getUserById(Long requestedId) {
+        //UserEntity authenticatedUser = findActiveUserById(authenticatedId);
+        //requireOwnerOrAdmin(authenticatedUser, requestedId);
         return new UserResponseDTO(findActiveUserById(requestedId));
     }
 
@@ -38,10 +40,10 @@ public class UserService {
         user.setName(dto.name());
         user.setPassword(passwordEncoder.encode(dto.password()));
         user.setEmail(dto.email());
-        user.setCellphone(dto.cellphone());
+        user.setCellphone("+5535992202021");
         user.setCpf(dto.cpf());
-        user.setType(dto.type());
-        user.setBirthDate(dto.birthDate());
+        user.setType(UserTypeENUM.ALUNO);
+        user.setBirthDate(LocalDate.now());
         user.setRole(UserRoleENUM.USER);
         user.setStatus(UserStatusENUM.ACTIVE);
         return new UserResponseDTO(userRepository.save(user));
