@@ -4,14 +4,14 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api")
-@CrossOrigin(origins = "http://localhost:3000")
+@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:3002"})
 public class MensagemController {
-    
+
     private final MensagemRepository repository;
 
     public MensagemController(MensagemRepository repository) {
         this.repository = repository;
-}
+    }
 
     @GetMapping("/hello")
     public Mensagem getHelloMessage() {
