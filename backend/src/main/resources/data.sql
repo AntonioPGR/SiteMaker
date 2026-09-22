@@ -1,0 +1,1 @@
+INSERT INTO mensagem (id, texto) VALUES (1, 'Olá do Back-end Spring Boot!');
