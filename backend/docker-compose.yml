@@ -1,0 +1,9 @@
+services:
+  website:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: maker-website
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
