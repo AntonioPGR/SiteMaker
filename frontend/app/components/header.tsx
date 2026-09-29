@@ -36,6 +36,7 @@ export default function Header({ authenticated = false }: HeaderProps) {
           <Link href="#maquinas" className="transition-colors hover:text-[#00ff9d]">Máquinas</Link>
           <Link href="#pedidos" className="transition-colors hover:text-[#00ff9d]">Pedidos</Link>
           <Link href="#emprestimos" className="transition-colors hover:text-[#00ff9d]">Empréstimos</Link>
+          <Link href="normas" className="transition-colors hover:text-[#00ff9d]">Normas</Link>
         </nav>
 
         <div className="flex items-center gap-3">
