@@ -241,7 +241,7 @@ export default function MaquinasAdmPage() {
             <SidebarItem
               icon={<Calendar className="w-5 h-5" />}
               label="Agendamentos"
-              href="#agendamentos"
+              href="/Agendamento-ADM"
               collapsed={!sidebarOpen}
             />
 
@@ -255,7 +255,7 @@ export default function MaquinasAdmPage() {
             <SidebarItem
               icon={<BarChart3 className="w-5 h-5" />}
               label="Relatórios"
-              href="#relatorios"
+              href="/Relatorio-ADM"
               collapsed={!sidebarOpen}
             />
 
