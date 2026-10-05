@@ -3,19 +3,66 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { LogIn, LogOut, UserPlus } from 'lucide-react';
+import { LogIn, LogOut, User, UserPlus } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 interface HeaderProps {
   authenticated?: boolean;
+  userName?: string;
+  userId?: string;
 }
 
-export default function Header({ authenticated = false }: HeaderProps) {
+export default function Header({ authenticated, userName, userId }: HeaderProps) {
   const router = useRouter();
+  const [isAuth, setIsAuth] = useState<boolean>(false);
+  const [displayName, setDisplayName] = useState<string>('');
+  const [currentUserId, setCurrentUserId] = useState<string>('');
+
+  useEffect(() => {
+    // 1. Regista/recupera o ID do utilizador
+    if (userId) {
+      setCurrentUserId(userId);
+      localStorage.setItem('userId', userId);
+    } else {
+      const storedId = localStorage.getItem('userId');
+      if (storedId) setCurrentUserId(storedId);
+    }
+
+    // 2. Regista/recupera o Nome do utilizador
+    if (userName) {
+      setDisplayName(userName);
+      setIsAuth(true);
+      localStorage.setItem('userName', userName);
+      return;
+    }
+
+    const storedName = localStorage.getItem('userName');
+    const storedToken = localStorage.getItem('authToken');
+
+    if (storedName) {
+      setDisplayName(storedName);
+      setIsAuth(true);
+    } else if (authenticated || storedToken) {
+      setIsAuth(true);
+    } else {
+      setIsAuth(false);
+    }
+  }, [userName, userId, authenticated]);
 
   function handleLogout() {
-    localStorage.removeItem('authToken');
-    router.push('/');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('userName');
+      localStorage.removeItem('userId');
+      localStorage.removeItem('authToken');
+      localStorage.clear();
+    }
+    setIsAuth(false);
+    setDisplayName('');
+    setCurrentUserId('');
+    router.push('/login');
   }
+
+  const profileHref = currentUserId ? `/home/${currentUserId}` : '#';
 
   return (
     <header className="relative z-20 border-b border-white/10 bg-[#050b33] px-5 py-4 text-white shadow-md sm:px-8">
@@ -30,13 +77,14 @@ export default function Header({ authenticated = false }: HeaderProps) {
           />
         </Link>
 
+        {/* Links corrigidos com barras '/' absolutas */}
         <nav className="hidden items-center gap-6 text-sm font-semibold lg:flex">
           <Link href="/" className="transition-colors hover:text-[#00ff9d]">Início</Link>
-          <Link href="#materiais" className="transition-colors hover:text-[#00ff9d]">Materiais</Link>
-          <Link href="#maquinas" className="transition-colors hover:text-[#00ff9d]">Máquinas</Link>
-          <Link href="#pedidos" className="transition-colors hover:text-[#00ff9d]">Pedidos</Link>
-          <Link href="#emprestimos" className="transition-colors hover:text-[#00ff9d]">Empréstimos</Link>
-          <Link href="normas" className="transition-colors hover:text-[#00ff9d]">Normas</Link>
+          <Link href="/#materiais" className="transition-colors hover:text-[#00ff9d]">Materiais</Link>
+          <Link href="/#maquinas" className="transition-colors hover:text-[#00ff9d]">Máquinas</Link>
+          <Link href="/#pedidos" className="transition-colors hover:text-[#00ff9d]">Pedidos</Link>
+          <Link href="/#emprestimos" className="transition-colors hover:text-[#00ff9d]">Empréstimos</Link>
+          <Link href="/normas" className="transition-colors hover:text-[#00ff9d]">Normas</Link>
         </nav>
 
         <div className="flex items-center gap-3">
@@ -46,16 +94,30 @@ export default function Header({ authenticated = false }: HeaderProps) {
             <span className="h-3.5 w-3.5 rounded-full bg-[#00ff19]" />
             <span className="h-3.5 w-3.5 rounded-full bg-[#ff6a00]" />
           </div>
-          {authenticated ? (
-            <button
-              type="button"
-              onClick={handleLogout}
-              title="Sair"
-              aria-label="Sair"
-              className="inline-flex items-center gap-2 rounded-full border border-white/25 px-3 py-2 text-xs font-semibold text-white/75 transition-colors hover:border-white/50 hover:bg-white/10 hover:text-white"
-            >
-              <LogOut className="h-4 w-4" /> Sair
-            </button>
+
+          {isAuth ? (
+            <div className="flex items-center gap-3">
+              <Link
+                href={profileHref}
+                title="Ir para o meu perfil"
+                className="flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-1.5 text-sm font-semibold text-white transition-all hover:border-[#00ff9d] hover:bg-white/10"
+              >
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#7000ff] text-white">
+                  <User className="h-3.5 w-3.5" />
+                </div>
+                {displayName && <span>{displayName}</span>}
+              </Link>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                title="Sair"
+                aria-label="Sair"
+                className="inline-flex items-center gap-2 rounded-full border border-white/25 px-3 py-2 text-xs font-semibold text-white/75 transition-colors hover:border-red-400 hover:bg-red-500/10 hover:text-red-300"
+              >
+                <LogOut className="h-4 w-4" /> Sair
+              </button>
+            </div>
           ) : (
             <>
               <Link href="/login" className="inline-flex items-center gap-2 rounded-full border border-white/40 px-3 py-2 text-xs font-bold transition-colors hover:bg-white/10 sm:px-4 sm:text-sm">
