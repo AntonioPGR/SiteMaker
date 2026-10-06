@@ -4,6 +4,14 @@ import Link from 'next/link';
 import { ArrowRight, Lightbulb, Users, Wrench } from 'lucide-react';
 import Image from 'next/image';
 import Header from '@/app/components/header';
+import React from 'react';
+
+// Tipagem para o componente InfoCard
+type InfoCardProps = {
+  icon: React.ReactNode;
+  title: string;
+  text: string;
+};
 
 export default function HomePage() {
   return (
@@ -16,29 +24,20 @@ export default function HomePage() {
         <svg 
           className="absolute inset-0 w-full h-full pointer-events-none" 
           xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 1920 1000"
+          preserveAspectRatio="none"
         >
-          {/* Linha ondulada inferior */}
+          {/* Linha ondulada inferior estendida para cobrir 100% da largura */}
           <path 
-            d="M -50,800 Q 200,750 400,820 T 900,850 T 1500,800" 
+            d="M -50,800 Q 200,750 400,820 T 900,850 T 1500,800 T 2200,800" 
             fill="none" 
             stroke="#1D2B53" 
             strokeWidth="2" 
           />
-          {/* Bolinhas na linha inferior */}
-          <circle cx="200" cy="780" r="12" fill="#7000FF" />
-          <circle cx="800" cy="840" r="10" fill="#00FF19" />
-          <circle cx="1230" cy="830" r="14" fill="#FF2A55" />
-
-          {/* Curva lateral direita */}
-          <path 
-            d="M 1920,150 C 1200,200 1200,750 1920,800" 
-            fill="none" 
-            stroke="#1D2B53" 
-            strokeWidth="2" 
-          />
-          {/* Bolinhas na curva lateral */}
-          <circle cx="1870" cy="180" r="13" fill="#FF2A55" />
-          <circle cx="1780" cy="580" r="13" fill="#7000FF" />
+          {/* Bolinhas alinhadas sobre a curva */}
+          <circle cx="190" cy="780" r="10" fill="#7000FF" />
+          <circle cx="900" cy="850" r="10" fill="#00FF19" />
+          <circle cx="1700" cy="796" r="10" fill="#FF2A55" />
         </svg>
 
         <section className="relative isolate min-h-[560px] overflow-hidden bg-[#07113f] text-white">
@@ -97,7 +96,7 @@ export default function HomePage() {
   );
 }
 
-function InfoCard({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) {
+function InfoCard({ icon, title, text }: InfoCardProps) {
   return (
     <article className="border-t-4 border-[#050b33] bg-[#f5f7fb] p-6">
       <div className="flex h-11 w-11 items-center justify-center bg-white text-[#7000ff] shadow-sm">

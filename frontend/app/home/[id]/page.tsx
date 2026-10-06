@@ -41,7 +41,8 @@ export default function UserHomePage() {
 
   return (
     <div className="min-h-screen bg-[#f5f7fb] text-[#050b33]">
-      <Header authenticated />
+      {/* HEADER: user.id é convertido explicitamente para String para evitar o erro do TypeScript */}
+      <Header authenticated userName={user.name} userId={String(user.id)} />
 
       <section className="mx-auto max-w-5xl px-6 py-12">
         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#56617d]">Área do usuário</p>

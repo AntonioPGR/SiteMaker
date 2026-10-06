@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -29,9 +29,15 @@ import {
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
+  X,
+  Upload,
+  Check,
+  Camera,
+  Trash2,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import Header from '@/app/components/header';
-
 
 export type MachineStatus = 'Em operação' | 'Disponível' | 'Inativo';
 export type MachineType = 'Impressão 3D' | 'Corte a Laser' | 'CNC';
@@ -54,7 +60,7 @@ const INITIAL_MACHINES: Machine[] = [
     description: 'Impressora 3D FDM para prototipagem e projetos diversos.',
     type: 'Impressão 3D',
     status: 'Em operação',
-    image: '/machines/m1.png',
+    image: '/maquinas/m1.png',
   },
   {
     id: '2',
@@ -63,7 +69,7 @@ const INITIAL_MACHINES: Machine[] = [
     description: 'Máquina de corte e gravação a laser para materiais diversos.',
     type: 'Corte a Laser',
     status: 'Disponível',
-    image: '/machines/m2.png',
+    image: '/maquinas/m2.png',
   },
   {
     id: '3',
@@ -72,7 +78,7 @@ const INITIAL_MACHINES: Machine[] = [
     description: 'Impressora 3D de alta precisão com grande volume de impressão.',
     type: 'Impressão 3D',
     status: 'Disponível',
-    image: '/machines/m3.png',
+    image: '/maquinas/m3.png',
   },
   {
     id: '4',
@@ -81,7 +87,7 @@ const INITIAL_MACHINES: Machine[] = [
     description: 'Impressora 3D industrial para peças de maior resistência.',
     type: 'Impressão 3D',
     status: 'Disponível',
-    image: '/machines/m4.png',
+    image: '/maquinas/m4.png',
   },
   {
     id: '5',
@@ -90,7 +96,7 @@ const INITIAL_MACHINES: Machine[] = [
     description: 'Impressora 3D versátil e de fácil manutenção.',
     type: 'Impressão 3D',
     status: 'Em operação',
-    image: '/machines/m5.png',
+    image: '/maquinas/m5.png',
   },
   {
     id: '6',
@@ -99,7 +105,7 @@ const INITIAL_MACHINES: Machine[] = [
     description: 'Impressora 3D de alta performance com dupla extrusão.',
     type: 'Impressão 3D',
     status: 'Disponível',
-    image: '/machines/m6.png',
+    image: '/maquinas/m6.png',
   },
   {
     id: '7',
@@ -108,19 +114,148 @@ const INITIAL_MACHINES: Machine[] = [
     description: 'Router CNC para usinagem de materiais como madeira, acrílico e MDF.',
     type: 'CNC',
     status: 'Inativo',
-    image: '/machines/m7.png',
+    image: '/maquinas/m7.png',
   },
 ];
 
+const PRESET_IMAGES = [
+  '/maquinas/m1.png',
+  '/maquinas/m2.png',
+  '/maquinas/m3.png',
+  '/maquinas/m4.png',
+  '/maquinas/m5.png',
+  '/maquinas/m6.png',
+  '/maquinas/m7.png',
+];
+
 export default function MaquinasAdmPage() {
+  const [machines, setMachines] = useState<Machine[]>(INITIAL_MACHINES);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
   const [typeFilter, setTypeFilter] = useState('Todos');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  const [editingMachine, setEditingMachine] = useState<Machine | null>(null);
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
+  const [viewingMachine, setViewingMachine] = useState<Machine | null>(null);
+
+  // formulário de edição/criação
+  const [formData, setFormData] = useState<{
+    name: string;
+    code: string;
+    description: string;
+    type: MachineType;
+    status: MachineStatus;
+    image: string;
+  }>({
+    name: '',
+    code: '',
+    description: '',
+    type: 'Impressão 3D',
+    status: 'Disponível',
+    image: '/maquinas/m1.png',
+  });
+
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function showToast(text: string) {
+    setToastMessage(text);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 4000);
+  }
+
+  function handleOpenEdit(machine: Machine) {
+    setEditingMachine(machine);
+    setIsCreatingNew(false);
+    setFormData({
+      name: machine.name,
+      code: machine.code,
+      description: machine.description,
+      type: machine.type,
+      status: machine.status,
+      image: machine.image || '/maquinas/m1.png',
+    });
+  }
+
+  // cadastro de nova máquina
+  function handleOpenCreate() {
+    setIsCreatingNew(true);
+    setEditingMachine(null);
+    const nextCode = `#M00${machines.length + 1}`;
+    setFormData({
+      name: '',
+      code: nextCode,
+      description: '',
+      type: 'Impressão 3D',
+      status: 'Disponível',
+      image: '/maquinas/m1.png',
+    });
+  }
+
+  // upload de imagem da máquina
+  function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          setFormData((prev) => ({ ...prev, image: reader.result as string }));
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  // botão salvar máquina editada ou criada
+  function handleSaveMachine(e: React.FormEvent) {
+    e.preventDefault();
+
+    if (!formData.name.trim()) {
+      alert('Por favor, informe o nome da máquina.');
+      return;
+    }
+
+    if (isCreatingNew) {
+      const newMachine: Machine = {
+        id: String(Date.now()),
+        code: formData.code.trim() || `#M00${machines.length + 1}`,
+        name: formData.name.trim(),
+        description: formData.description.trim(),
+        type: formData.type,
+        status: formData.status,
+        image: formData.image || '/maquinas/m1.png',
+      };
+      setMachines((prev) => [newMachine, ...prev]);
+      showToast(`Máquina ${newMachine.name} cadastrada com sucesso!`);
+    } else if (editingMachine) {
+      setMachines((prev) =>
+        prev.map((m) =>
+          m.id === editingMachine.id
+            ? {
+                ...m,
+                name: formData.name.trim(),
+                code: formData.code.trim(),
+                description: formData.description.trim(),
+                type: formData.type,
+                status: formData.status,
+                image: formData.image,
+              }
+            : m
+        )
+      );
+      showToast(`Máquina ${formData.name} atualizada com sucesso!`);
+    }
+
+    setEditingMachine(null);
+    setIsCreatingNew(false);
+  }
+
+  // Filtragem dinâmica
   const filteredMachines = useMemo(() => {
-    return INITIAL_MACHINES.filter((machine) => {
+    return machines.filter((machine) => {
       const matchesSearch =
         machine.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         machine.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -134,12 +269,12 @@ export default function MaquinasAdmPage() {
 
       return matchesSearch && matchesStatus && matchesType;
     });
-  }, [searchTerm, statusFilter, typeFilter]);
+  }, [machines, searchTerm, statusFilter, typeFilter]);
 
-  const totalCount = INITIAL_MACHINES.length;
-  const inOperationCount = INITIAL_MACHINES.filter((m) => m.status === 'Em operação').length;
-  const availableCount = INITIAL_MACHINES.filter((m) => m.status === 'Disponível').length;
-  const inactiveCount = INITIAL_MACHINES.filter((m) => m.status === 'Inativo').length;
+  const totalCount = machines.length;
+  const inOperationCount = machines.filter((m) => m.status === 'Em operação').length;
+  const availableCount = machines.filter((m) => m.status === 'Disponível').length;
+  const inactiveCount = machines.filter((m) => m.status === 'Inativo').length;
 
   return (
     <div className="min-h-screen bg-[#f5f7fb] text-[#050b33] flex flex-col font-sans selection:bg-[#7000ff]/20 selection:text-[#050b33]">
@@ -206,7 +341,7 @@ export default function MaquinasAdmPage() {
         >
           <div className="absolute -bottom-10 -left-10 w-44 h-44 opacity-5 pointer-events-none text-white">
             <svg viewBox="0 0 100 100" fill="currentColor">
-              <path d="M50 35a15 15 0 1 0 0 30 15 15 0 0 0 0-30zm0-25c-2.3 0-4.3 1.5-4.8 3.8l-1.3 5.4c-2.4.7-4.7 1.8-6.7 3.1l-5-2.6c-2.1-1.1-4.7-.6-6.2 1.2l-5.7 7c-1.5 1.8-1.5 4.4-.1 6.3l3.3 4.6c-1.2 2.1-2.1 4.4-2.7 6.9l-5.5 1.1C13.2 47.3 11.5 49.3 11.5 51.6v9c0 2.3 1.7 4.3 3.9 4.8l5.5 1.1c.6 2.5 1.5 4.8 2.7 6.9l-3.3 4.6c-1.4 1.9-1.4 4.5.1 6.3l5.7 7c1.5 1.8 4.1 2.3 6.2 1.2l5-2.6c2 1.3 4.3 2.4 6.7 3.1l1.3 5.4c.5 2.3 2.5 3.8 4.8 3.8h9c2.3 0 4.3-1.5 4.8-3.8l1.3-5.4c2.4-.7 4.7-1.8 6.7-3.1l5 2.6c2.1 1.1 4.7.6 6.2-1.2l5.7-7c1.5-1.8 1.5-4.4.1-6.3l-3.3-4.6c1.2-2.1 2.1-4.4 2.7-6.9l5.5-1.1c2.2-.5 3.9-2.5 3.9-4.8v-9c0-2.3-1.7-4.3-3.9-4.8l-5.5-1.1c-.6-2.5-1.5-4.8-2.7-6.9l3.3-4.6c1.4-1.9 1.4-4.5-.1-6.3l-5.7-7c-1.5-1.8-4.1-2.3-6.2-1.2l-5 2.6c-2-1.3-4.3-2.4-6.7-3.1l-1.3-5.4C58.3 11.5 56.3 10 54 10h-4z" />
+              <path d="M50 35a15 15 0 1 0 0 30 15 15 0 0 0 0-30zm0-25c-2.3 0-4.3 1.5-4.8 3.8l-1.3 5.4c-2.4.7-4.7 1.8-6.7 3.1l-5-2.6c-2.1-1.1-4.7-.6-6.2 1.2l-5.7 7c-1.5 1.8-1.5 4.4-.1 6.3l3.3 4.6c-1.2 2.1-2.1 4.4-2.7 6.9l-5.5 1.1C13.2 47.3 11.5 49.3 11.5 51.6v9c0 2.3 1.7 4.3 3.9 4.8l5.5 1.1c.6 2.5 1.5 4.8 2.7 6.9l-3.3 4.6c-1.4 1.9-1.4 4.5-.1 6.3l-5.7-7c-1.5-1.8-4.1-2.3-6.2-1.2l-5 2.6c-2 1.3-4.3-2.4-6.7-3.1l-1.3-5.4C58.3 11.5 56.3 10 54 10h-4z" />
             </svg>
           </div>
 
@@ -241,7 +376,7 @@ export default function MaquinasAdmPage() {
             <SidebarItem
               icon={<Calendar className="w-5 h-5" />}
               label="Agendamentos"
-              href="#agendamentos"
+              href="/Agendamento-ADM"
               collapsed={!sidebarOpen}
             />
 
@@ -255,7 +390,7 @@ export default function MaquinasAdmPage() {
             <SidebarItem
               icon={<BarChart3 className="w-5 h-5" />}
               label="Relatórios"
-              href="#relatorios"
+              href="/Relatorio-ADM"
               collapsed={!sidebarOpen}
             />
 
@@ -278,6 +413,19 @@ export default function MaquinasAdmPage() {
         </aside>
 
         <main className="flex-1 overflow-y-auto px-4 sm:px-8 lg:px-10 py-7 max-w-7xl mx-auto w-full">
+          {toastMessage && (
+            <div className="fixed top-20 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg border bg-emerald-50 text-emerald-900 border-emerald-200 text-sm font-semibold animate-in fade-in slide-in-from-top-4 duration-200">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+              <span>{toastMessage}</span>
+              <button
+                onClick={() => setToastMessage(null)}
+                className="ml-2 text-slate-400 hover:text-slate-700"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-7">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#7000ff] mb-1">
@@ -293,7 +441,8 @@ export default function MaquinasAdmPage() {
 
             <button
               type="button"
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#f59e0b] px-5 py-3 text-sm font-extrabold text-[#050b33] shadow-sm shadow-[#f59e0b]/30 transition-all hover:bg-[#eab308] hover:shadow-md hover:-translate-y-0.5 active:translate-y-0"
+              onClick={handleOpenCreate}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#f59e0b] px-5 py-3 text-sm font-extrabold text-[#050b33] shadow-sm shadow-[#f59e0b]/30 transition-all hover:bg-[#eab308] hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
             >
               <Plus className="w-4 h-4 stroke-[3]" />
               <span>Adicionar Máquina</span>
@@ -354,6 +503,7 @@ export default function MaquinasAdmPage() {
             />
           </div>
 
+          {/* BARRA DE PESQUISA E FILTROS */}
           <div className="bg-white rounded-2xl border border-[#dfe4ee] p-3 sm:p-4 shadow-sm mb-6 flex flex-col md:flex-row items-center gap-3">
             <div className="relative flex-1 w-full">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -412,6 +562,7 @@ export default function MaquinasAdmPage() {
             </button>
           </div>
 
+          {/* TABELA DE MÁQUINAS */}
           <div className="bg-white rounded-2xl border border-[#dfe4ee] shadow-sm overflow-hidden mb-6">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse min-w-[760px]">
@@ -469,29 +620,34 @@ export default function MaquinasAdmPage() {
                           <StatusBadge status={machine.status} />
                         </td>
 
-                        
                         <td className="py-4 px-6 text-center">
                           <div className="inline-flex items-center justify-center gap-1.5">
+                            {/* botao: detalhes (olhinho) */}
                             <button
                               type="button"
-                              title="Visualizar detalhes"
-                              className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-[#7000ff] hover:bg-[#7000ff]/5 hover:border-[#7000ff]/40 transition-colors"
+                              onClick={() => setViewingMachine(machine)}
+                              title="Visualizar detalhes da máquina"
+                              className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-[#7000ff] hover:bg-[#7000ff]/5 hover:border-[#7000ff]/40 transition-colors cursor-pointer"
                             >
                               <Eye className="w-4 h-4" />
                             </button>
 
+                            {/* botao: editar maquina */}
                             <button
                               type="button"
-                              title="Editar máquina"
-                              className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-amber-600 hover:bg-amber-50 hover:border-amber-300 transition-colors"
+                              onClick={() => handleOpenEdit(machine)}
+                              title="Editar máquina (foto, nome, descrição, status)"
+                              className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-amber-600 hover:bg-amber-50 hover:border-amber-300 transition-colors cursor-pointer active:scale-95"
                             >
                               <Pencil className="w-4 h-4" />
                             </button>
 
+                            {/* botao: mais opções */}
                             <button
                               type="button"
-                              title="Mais opções"
-                              className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-[#050b33] hover:bg-slate-100 hover:border-slate-300 transition-colors"
+                              onClick={() => handleOpenEdit(machine)}
+                              title="Mais opções de edição"
+                              className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-[#050b33] hover:bg-slate-100 hover:border-slate-300 transition-colors cursor-pointer"
                             >
                               <MoreVertical className="w-4 h-4" />
                             </button>
@@ -510,7 +666,6 @@ export default function MaquinasAdmPage() {
               </table>
             </div>
 
-            {/* 8. PAGINAÇÃO E CONTAGEM */}
             <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 font-medium">
               <p>
                 Mostrando{' '}
@@ -520,7 +675,6 @@ export default function MaquinasAdmPage() {
                 {filteredMachines.length === 1 ? 'máquina' : 'máquinas'}
               </p>
 
-              {/* Botões visuais de paginação */}
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
@@ -548,10 +702,332 @@ export default function MaquinasAdmPage() {
           </div>
         </main>
       </div>
+
+      {/* edicao e cadastro de maquinas */}
+      {(editingMachine || isCreatingNew) && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#050b33]/60 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-200"
+          onClick={() => {
+            setEditingMachine(null);
+            setIsCreatingNew(false);
+          }}
+        >
+          <div
+            className="bg-white rounded-2xl border border-[#dfe4ee] shadow-2xl max-w-xl w-full overflow-hidden my-8 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-[#fafbfe] border-b border-slate-100 p-5 sm:p-6 flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 text-[#f59e0b] border border-amber-200">
+                  <Pencil className="w-5 h-5 stroke-[2.5]" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="font-mono text-xs font-extrabold text-[#7000ff]">
+                      {formData.code || '#M000'}
+                    </span>
+                    <span className="text-[11px] font-semibold text-slate-400">
+                      • {isCreatingNew ? 'Nova Máquina' : 'Edição'}
+                    </span>
+                  </div>
+                  <h2 className="text-xl font-extrabold text-[#050b33] tracking-tight">
+                    {isCreatingNew ? 'Cadastrar Nova Máquina' : `Editar ${editingMachine?.name}`}
+                  </h2>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingMachine(null);
+                  setIsCreatingNew(false);
+                }}
+                className="p-2 rounded-xl text-slate-400 hover:text-[#050b33] hover:bg-slate-100 transition-colors"
+                title="Fechar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveMachine}>
+              <div className="p-5 sm:p-6 space-y-5 max-h-[72vh] overflow-y-auto">
+                {/* foto da maquina*/}
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-700 block mb-2">
+                    Foto da Máquina
+                  </label>
+
+                  <div className="flex flex-col sm:flex-row items-center gap-4 bg-[#f8fafc] p-4 rounded-2xl border border-slate-200/80">
+                    <div className="relative w-28 h-24 rounded-xl overflow-hidden border-2 border-slate-300 bg-white shadow-2xs shrink-0 flex items-center justify-center">
+                      {formData.image ? (
+                        <Image
+                          src={formData.image}
+                          alt="Foto da Máquina"
+                          fill
+                          className="object-cover"
+                        />
+                      ) : (
+                        <Camera className="w-8 h-8 text-slate-400" />
+                      )}
+                    </div>
+
+                    <div className="flex-1 w-full space-y-2.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          onChange={handleImageUpload}
+                          accept="image/*"
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#050b33] text-xs font-bold text-white hover:bg-[#101d5e] transition-colors shadow-2xs cursor-pointer"
+                        >
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>Carregar Foto do Computador</span>
+                        </button>
+
+                        {formData.image && (
+                          <button
+                            type="button"
+                            onClick={() => setFormData((prev) => ({ ...prev, image: '/maquinas/m1.png' }))}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-colors"
+                            title="Restaurar imagem padrão"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Padrão</span>
+                          </button>
+                        )}
+                      </div>
+
+                      <div>
+                        <span className="text-[11px] font-semibold text-slate-500 block mb-1.5">
+                          Ou escolha uma imagem do laboratório:
+                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {PRESET_IMAGES.map((img, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => setFormData((prev) => ({ ...prev, image: img }))}
+                              title={`Foto predefinida M${idx + 1}`}
+                              className={`relative w-8 h-8 rounded-lg overflow-hidden border-2 transition-all ${
+                                formData.image === img
+                                  ? 'border-[#7000ff] ring-2 ring-[#7000ff]/30 scale-105'
+                                  : 'border-slate-200 opacity-70 hover:opacity-100 hover:border-slate-400'
+                              }`}
+                            >
+                              <Image src={img} alt={`Preset ${idx + 1}`} fill className="object-cover" />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-700 block mb-1.5">
+                      Nome da Máquina *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.name}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                      placeholder="Ex: Creality Ender 3 Pro"
+                      className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-[#050b33] placeholder-slate-400 focus:border-[#7000ff] focus:outline-none focus:ring-2 focus:ring-[#7000ff]/20 transition-all font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-700 block mb-1.5">
+                      Código *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.code}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, code: e.target.value }))}
+                      placeholder="#M001"
+                      className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-[#050b33] font-mono font-bold focus:border-[#7000ff] focus:outline-none focus:ring-2 focus:ring-[#7000ff]/20 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-700 block mb-1.5">
+                      Tipo de Máquina
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={formData.type}
+                        onChange={(e) =>
+                          setFormData((prev) => ({ ...prev, type: e.target.value as MachineType }))
+                        }
+                        className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-8 text-sm font-semibold text-slate-700 focus:border-[#7000ff] focus:outline-none focus:ring-2 focus:ring-[#7000ff]/20 transition-all cursor-pointer"
+                      >
+                        <option value="Impressão 3D">Impressão 3D</option>
+                        <option value="Corte a Laser">Corte a Laser</option>
+                        <option value="CNC">CNC</option>
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-700 block mb-1.5">
+                      Status Operacional
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={formData.status}
+                        onChange={(e) =>
+                          setFormData((prev) => ({ ...prev, status: e.target.value as MachineStatus }))
+                        }
+                        className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 pr-8 text-sm font-semibold text-slate-700 focus:border-[#7000ff] focus:outline-none focus:ring-2 focus:ring-[#7000ff]/20 transition-all cursor-pointer"
+                      >
+                        <option value="Disponível">Disponível</option>
+                        <option value="Em operação">Em operação</option>
+                        <option value="Inativo">Inativo</option>
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-700 block mb-1.5">
+                    Descrição Detalhada da Máquina
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={formData.description}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+                    placeholder="Descreva a finalidade, especificações, volume de impressão ou materiais suportados..."
+                    className="w-full rounded-xl border border-slate-200 p-3 text-sm text-[#050b33] placeholder-slate-400 focus:border-[#7000ff] focus:outline-none focus:ring-2 focus:ring-[#7000ff]/20 transition-all resize-none leading-relaxed"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-[#fafbfe] border-t border-slate-100 p-4 sm:p-6 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingMachine(null);
+                    setIsCreatingNew(false);
+                  }}
+                  className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#f59e0b] px-6 py-2.5 text-xs font-extrabold text-[#050b33] shadow-sm shadow-[#f59e0b]/30 hover:bg-[#eab308] hover:shadow-md transition-all cursor-pointer hover:-translate-y-0.5 active:translate-y-0"
+                >
+                  <Check className="w-4 h-4 stroke-[3]" />
+                  <span>{isCreatingNew ? 'Cadastrar Máquina' : 'Salvar Alterações'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {viewingMachine && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#050b33]/60 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setViewingMachine(null)}
+        >
+          <div
+            className="bg-white rounded-2xl border border-[#dfe4ee] shadow-2xl max-w-lg w-full overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="relative h-48 w-full bg-slate-900 overflow-hidden">
+              <Image
+                src={viewingMachine.image}
+                alt={viewingMachine.name}
+                fill
+                className="object-cover opacity-90"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#050b33] via-transparent to-transparent" />
+              <button
+                type="button"
+                onClick={() => setViewingMachine(null)}
+                className="absolute top-4 right-4 p-2 rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <div className="absolute bottom-4 left-5 right-5 flex items-end justify-between">
+                <div>
+                  <span className="font-mono text-xs font-bold text-[#00ff9d] bg-[#00ff9d]/20 px-2.5 py-0.5 rounded-md border border-[#00ff9d]/30">
+                    {viewingMachine.code}
+                  </span>
+                  <h3 className="text-xl font-extrabold text-white mt-1">
+                    {viewingMachine.name}
+                  </h3>
+                </div>
+                <StatusBadge status={viewingMachine.status} />
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <span className="text-xs font-bold uppercase text-slate-400 block mb-1">
+                  Tipo de Equipamento
+                </span>
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-[#eef1ff] text-[#4f46e5]">
+                  {viewingMachine.type}
+                </span>
+              </div>
+
+              <div>
+                <span className="text-xs font-bold uppercase text-slate-400 block mb-1">
+                  Descrição
+                </span>
+                <p className="text-sm text-slate-700 leading-relaxed bg-[#f8fafc] p-3.5 rounded-xl border border-slate-100">
+                  {viewingMachine.description}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-[#fafbfe] border-t border-slate-100 p-4 sm:p-5 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => {
+                  const m = viewingMachine;
+                  setViewingMachine(null);
+                  handleOpenEdit(m);
+                }}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold hover:bg-amber-100 transition-colors"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span>Editar esta máquina</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setViewingMachine(null)}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
 
 function SidebarItem({
   icon,
