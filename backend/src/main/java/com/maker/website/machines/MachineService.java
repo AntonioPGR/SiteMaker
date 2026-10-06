@@ -21,24 +21,27 @@ public class MachineService {
     }
 
     public MachineResponseDTO getMachineById(Long id) {
-        return new MachineResponseDTO(findActiveMachineById(id));
+        return new MachineResponseDTO(findMachineById(id));
     }
 
     public MachineResponseDTO createMachine(CreateMachineDTO dto) {
-        // Validações específicas se houver (ex: nome único, etc.)
         validateMachineName(dto.name());
+        validateMachineCode(dto.code());
 
         MachineEntity machine = new MachineEntity();
         machine.setName(dto.name());
         machine.setDescription(dto.description());
-        // Defina o status inicial padrão se necessário
-        machine.setStatus(MachineStatusENUM.FUNCTIONAL);
+        machine.setCode(dto.code());
+        machine.setType(dto.type());
+        machine.setImage(dto.image());
+        machine.setAccess(dto.access());
+        machine.setStatus(dto.status() == null ? MachineStatusENUM.AVAILABLE : dto.status());
 
         return new MachineResponseDTO(machineRepository.save(machine));
     }
 
     public MachineResponseDTO updateMachine(Long id, UpdateMachineDTO dto) {
-        MachineEntity machine = findActiveMachineById(id);
+        MachineEntity machine = findMachineById(id);
 
         if (dto.name() != null && !dto.name().equals(machine.getName())) {
             validateMachineName(dto.name());
@@ -50,17 +53,24 @@ public class MachineService {
         if (dto.status() != null) {
             machine.setStatus(dto.status());
         }
+        if (dto.code() != null && !dto.code().equals(machine.getCode())) {
+            validateMachineCode(dto.code());
+            machine.setCode(dto.code());
+        }
+        if (dto.type() != null) machine.setType(dto.type());
+        if (dto.image() != null) machine.setImage(dto.image());
+        if (dto.access() != null) machine.setAccess(dto.access());
 
         return new MachineResponseDTO(machineRepository.save(machine));
     }
 
     public void deleteMachine(Long id) {
-        MachineEntity machine = findActiveMachineById(id);
+        MachineEntity machine = findMachineById(id);
         machine.setStatus(MachineStatusENUM.UNUSABLE);
         machineRepository.save(machine);
     }
 
-    public MachineEntity findActiveMachineById(Long id) {
+    public MachineEntity findMachineById(Long id) {
         return machineRepository.findByIdAndStatusNot(id, MachineStatusENUM.UNUSABLE)
                 .orElseThrow(() -> new IllegalArgumentException("Machine not found."));
     }
@@ -71,6 +81,12 @@ public class MachineService {
         }
         if (machineRepository.existsByName(name)) {
             throw new IllegalArgumentException("Machine name is already in use.");
+        }
+    }
+
+    private void validateMachineCode(String code) {
+        if (code != null && !code.isBlank() && machineRepository.existsByCode(code)) {
+            throw new IllegalArgumentException("Machine code is already in use.");
         }
     }
 }

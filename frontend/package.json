@@ -28,6 +28,7 @@
     "typescript": "^5"
   },
   "allowScripts": {
-    "unrs-resolver@1.12.2": true
+    "unrs-resolver@1.12.2": true,
+    "core-js@3.50.0": true
   }
 }

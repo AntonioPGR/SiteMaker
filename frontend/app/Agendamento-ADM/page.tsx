@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
   Calendar,
@@ -11,7 +11,6 @@ import {
   Settings,
   LogOut,
   Search,
-  SlidersHorizontal,
   Eye,
   CheckCircle2,
   XCircle,
@@ -32,18 +31,16 @@ import {
   AlertCircle,
   FileText,
   RotateCcw,
-  Sparkles,
   Layers,
   WrenchIcon,
   Tag,
   CheckSquare,
   Square,
-  MessageSquare,
-  Send,
-  HelpCircle,
-  Info
 } from 'lucide-react';
 import Header from '@/app/components/header';
+import { getSchedulingRequests, updateSchedulingRequest } from '@/app/lib/api';
+import { useAdminAccess } from '@/app/lib/use-admin-access';
+import type { SchedulingRequestAPI, SchedulingRequestPayload } from '@/app/types/api';
 
 export type RequestStatus = 'Aguardando análise' | 'Aprovado' | 'Recusado';
 export type RequesterType = 'Aluno' | 'Servidor';
@@ -79,273 +76,54 @@ export interface SchedulingRequest {
   createdAt: string;
 }
 
-const INITIAL_REQUESTS: SchedulingRequest[] = [
-  {
-    id: '1',
-    code: '#0012',
-    requesterName: 'Ana Clara Souza',
-    requesterType: 'Aluno',
-    course: 'Engenharia de Computação',
-    email: 'ana.souza@sga.pucminas.br',
-    registrationNumber: '741289',
-    date: '08/10/2026',
-    dayOfWeek: 'quarta-feira',
-    startTime: '13:00',
-    endTime: '16:00',
-    purpose: 'Projeto acadêmico',
-    reason: 'Necessidade de fabricação e montagem de protótipo estrutural para a disciplina de Sistemas Embarcados.',
-    description: 'Desenvolvimento e montagem de protótipo de hardware com corte a laser e impressão de suportes em 3D para atividade acadêmica.',
-    equipment: ['Impressora 3D', 'Ferramentas manuais', 'Bancada de trabalho'],
-    status: 'Aguardando análise',
-    workstation: 'Bancada 03 - Prototipagem',
-    createdAt: '01/10/2026 09:15',
-  },
-  {
-    id: '2',
-    code: '#0011',
-    requesterName: 'Lucas Ferreira',
-    requesterType: 'Aluno',
-    course: 'Engenharia de Computação',
-    email: 'lucas.ferreira@sga.pucminas.br',
-    registrationNumber: '739812',
-    date: '07/10/2026',
-    dayOfWeek: 'terça-feira',
-    startTime: '09:00',
-    endTime: '12:00',
-    purpose: 'Projeto pessoal',
-    reason: 'Modelagem e impressão das articulações e carcaça do robô seguidor de linha para competição.',
-    description: 'Impressão 3D de peças estruturais em filamento PLA para robô autônomo com testes de encaixe.',
-    equipment: ['Impressora 3D', 'Computadores', 'Ferramentas manuais'],
-    status: 'Aprovado',
-    workstation: 'Bancada 01 - Impressão 3D',
-    adminNotes: 'Liberado uso da Creality CR200B. Trazer filamento próprio homologado.',
-    decidedAt: '30/09/2026 15:40',
-    decidedBy: 'Monitor ADM',
-    createdAt: '30/09/2026 14:20',
-  },
-  {
-    id: '3',
-    code: '#0010',
-    requesterName: 'Mariana Lima',
-    requesterType: 'Aluno',
-    course: 'Biologia',
-    email: 'mariana.lima@sga.pucminas.br',
-    registrationNumber: '715420',
-    date: '06/10/2026',
-    dayOfWeek: 'segunda-feira',
-    startTime: '14:00',
-    endTime: '17:00',
-    purpose: 'Projeto de pesquisa',
-    reason: 'Fabricação de modelos tridimensionais didáticos de estruturas celulares para divulgação científica.',
-    description: 'Criação e acabamento de chaveiros e modelos anatômicos personalizados para apresentação na feira de ciências da universidade.',
-    equipment: ['Impressora 3D', 'Materiais de prototipagem', 'Ferramentas manuais'],
-    status: 'Aprovado',
-    workstation: 'Bancada 02 - Modelagem',
-    adminNotes: 'Agendamento confirmado. Uso da bancada de modelagem e Ender 3 Pro.',
-    decidedAt: '29/09/2026 16:30',
-    decidedBy: 'Monitor ADM',
-    createdAt: '29/09/2026 11:05',
-  },
-  {
-    id: '4',
-    code: '#0009',
-    requesterName: 'Rafael Costa',
-    requesterType: 'Aluno',
-    course: 'Geografia',
-    email: 'rafael.costa@sga.pucminas.br',
-    registrationNumber: '728340',
-    date: '03/10/2026',
-    dayOfWeek: 'sexta-feira',
-    startTime: '10:00',
-    endTime: '12:00',
-    purpose: 'Projeto acadêmico',
-    reason: 'Montagem de estação meteorológica portátil com sensores climáticos de baixo custo para trabalho de campo.',
-    description: 'Configuração, soldagem e testes de sensores de temperatura e umidade para o projeto de monitoramento microclimático ambiental.',
-    equipment: ['Kits de sensores', 'Computadores', 'Ferramentas manuais', 'Multímetro'],
-    status: 'Recusado',
-    rejectionReason: 'Horário com capacidade máxima de bancadas de eletrônica atingida devido a aula prática agendada.',
-    decidedAt: '29/09/2026 09:10',
-    decidedBy: 'Monitor ADM',
-    createdAt: '28/09/2026 16:45',
-  },
-  {
-    id: '5',
-    code: '#0008',
-    requesterName: 'Fernanda Oliveira',
-    requesterType: 'Servidor',
-    course: 'N/A',
-    email: 'fernanda.oliveira@pucminas.br',
-    registrationNumber: 'FUNC-1048',
-    date: '02/10/2026',
-    dayOfWeek: 'quinta-feira',
-    startTime: '08:30',
-    endTime: '11:30',
-    purpose: 'Atividade institucional',
-    reason: 'Produção de sinalização visual tátil e placas de orientação acessível para o bloco acadêmico.',
-    description: 'Gravação e corte a laser de chapas de acrílico e MDF para confecção de placas indicativas institucionais com braille.',
-    equipment: ['Corte a Laser', 'Computadores', 'Materiais de prototipagem'],
-    status: 'Aguardando análise',
-    workstation: 'Área Laser 01',
-    createdAt: '28/09/2026 08:30',
-  },
-  {
-    id: '6',
-    code: '#0007',
-    requesterName: 'João Silva',
-    requesterType: 'Aluno',
-    course: 'Administração',
-    email: 'joao.silva@sga.pucminas.br',
-    registrationNumber: '752109',
-    date: '01/10/2026',
-    dayOfWeek: 'quarta-feira',
-    startTime: '14:00',
-    endTime: '16:30',
-    purpose: 'Projeto acadêmico',
-    reason: 'Prototipagem rápida de produto voltada ao plano de negócios da disciplina de Empreendedorismo e Inovação.',
-    description: 'Modelagem 3D do mock-up funcional de embalagem sustentável para apresentação no Pitch de Startups.',
-    equipment: ['Computadores', 'Ferramentas manuais', 'Impressora 3D'],
-    status: 'Aprovado',
-    workstation: 'Bancada 03 - Prototipagem',
-    adminNotes: 'Aprovado para uso de computadores de modelagem e ferramentas manuais.',
-    decidedAt: '27/09/2026 14:00',
-    decidedBy: 'Monitor ADM',
-    createdAt: '27/09/2026 10:12',
-  },
-  {
-    id: '7',
-    code: '#0006',
-    requesterName: 'Carlos Henrique',
-    requesterType: 'Aluno',
-    course: 'Geografia',
-    email: 'carlos.henrique@sga.pucminas.br',
-    registrationNumber: '734190',
-    date: '30/09/2026',
-    dayOfWeek: 'terça-feira',
-    startTime: '08:00',
-    endTime: '11:00',
-    purpose: 'Projeto de pesquisa',
-    reason: 'Construção de maquete topográfica em relevo para estudo geomorfológico de bacias hidrográficas.',
-    description: 'Corte e fatiamento de curvas de nível em MDF e montagem física tridimensional do relevo regional.',
-    equipment: ['Bancada de trabalho', 'Ferramentas manuais', 'Corte a Laser'],
-    status: 'Aguardando análise',
-    workstation: 'Bancada Central 01',
-    createdAt: '26/09/2026 15:50',
-  },
-  {
-    id: '8',
-    code: '#0005',
-    requesterName: 'Beatriz Oliveira',
-    requesterType: 'Aluno',
-    course: 'Biologia',
-    email: 'beatriz.oliveira@sga.pucminas.br',
-    registrationNumber: '719034',
-    date: '29/09/2026',
-    dayOfWeek: 'segunda-feira',
-    startTime: '13:00',
-    endTime: '16:00',
-    purpose: 'Aula prática',
-    reason: 'Fabricação de suportes mecânicos para tubos de ensaio e placas de petri em projeto de monitoria.',
-    description: 'Montagem de estrutura e suportes laboratoriais utilizando materiais poliméricos do laboratório.',
-    equipment: ['Materiais de prototipagem', 'Ferramentas manuais', 'Bancada de trabalho'],
-    status: 'Aprovado',
-    workstation: 'Bancada 02 - Modelagem',
-    decidedAt: '26/09/2026 11:20',
-    decidedBy: 'Monitor ADM',
-    createdAt: '25/09/2026 13:40',
-  },
-  {
-    id: '9',
-    code: '#0004',
-    requesterName: 'Thiago Santos',
-    requesterType: 'Aluno',
-    course: 'Engenharia de Computação',
-    email: 'thiago.santos@sga.pucminas.br',
-    registrationNumber: '746123',
-    date: '26/09/2026',
-    dayOfWeek: 'sexta-feira',
-    startTime: '09:00',
-    endTime: '11:00',
-    purpose: 'Projeto acadêmico',
-    reason: 'Testes de potência e medição de consumo em placas de circuito impresso desenvolvidas no TCC.',
-    description: 'Testes elétricos em placas eletrônicas e análise de sinal em osciloscópio digital.',
-    equipment: ['Bancada de eletrônica', 'Multímetro', 'Fonte de bancada', 'Osciloscópio'],
-    status: 'Recusado',
-    rejectionReason: 'Manutenção programada nas fontes de alimentação da bancada 04.',
-    decidedAt: '24/09/2026 10:15',
-    decidedBy: 'Monitor ADM',
-    createdAt: '23/09/2026 17:15',
-  },
-  {
-    id: '10',
-    code: '#0003',
-    requesterName: 'Juliana Mendes',
-    requesterType: 'Aluno',
-    course: 'Administração',
-    email: 'juliana.mendes@sga.pucminas.br',
-    registrationNumber: '748902',
-    date: '25/09/2026',
-    dayOfWeek: 'quinta-feira',
-    startTime: '10:00',
-    endTime: '12:30',
-    purpose: 'Extensão',
-    reason: 'Prototipagem de displays organizacionais para oficina de gestão visual em comunidade atendida pelo curso.',
-    description: 'Impressão de pequenos módulos de suporte e peças de encaixe para quadros Kanban portáteis.',
-    equipment: ['Impressora 3D', 'Computadores', 'Ferramentas manuais'],
-    status: 'Aprovado',
-    workstation: 'Bancada 01 - Impressão 3D',
-    decidedAt: '23/09/2026 14:00',
-    decidedBy: 'Monitor ADM',
-    createdAt: '22/09/2026 11:30',
-  },
-  {
-    id: '11',
-    code: '#0002',
-    requesterName: 'Roberto Alencar',
-    requesterType: 'Servidor',
-    course: 'N/A',
-    email: 'roberto.alencar@pucminas.br',
-    registrationNumber: 'FUNC-0891',
-    date: '24/09/2026',
-    dayOfWeek: 'quarta-feira',
-    startTime: '15:00',
-    endTime: '17:30',
-    purpose: 'Atividade institucional',
-    reason: 'Fabricação de gabarito especial para manutenção de equipamentos de informática do campus.',
-    description: 'Usinagem CNC de bloco de nylon e acabamento manual para confecção de suporte técnico.',
-    equipment: ['CNC Router', 'Ferramentas manuais', 'Bancada de trabalho'],
-    status: 'Recusado',
-    rejectionReason: 'Router CNC indisponível para manutenção no bloco mecânico nesta data.',
-    decidedAt: '22/09/2026 09:40',
-    decidedBy: 'Monitor ADM',
-    createdAt: '21/09/2026 09:00',
-  },
-  {
-    id: '12',
-    code: '#0001',
-    requesterName: 'Gabriel Nogueira',
-    requesterType: 'Aluno',
-    course: 'Engenharia de Computação',
-    email: 'gabriel.nogueira@sga.pucminas.br',
-    registrationNumber: '750319',
-    date: '22/09/2026',
-    dayOfWeek: 'segunda-feira',
-    startTime: '14:00',
-    endTime: '17:00',
-    purpose: 'Projeto acadêmico',
-    reason: 'Integração de microcontrolador ESP32 com atuadores para controle de acesso via RFID.',
-    description: 'Montagem de circuito em protoboard, soldagem de conectores e calibração de firmware.',
-    equipment: ['Arduino', 'Componentes eletrônicos', 'Bancada de eletrônica', 'Ferro de solda'],
-    status: 'Aprovado',
-    workstation: 'Bancada 04 - Eletrônica',
-    decidedAt: '20/09/2026 10:00',
-    decidedBy: 'Monitor ADM',
-    createdAt: '19/09/2026 16:10',
-  },
-];
+const INITIAL_REQUESTS: SchedulingRequest[] = [];
 
 const ITEMS_PER_PAGE = 8;
 
+function toSchedulingRequest(request: SchedulingRequestAPI): SchedulingRequest {
+  const status: RequestStatus =
+    request.status === 'Aprovado' || request.status === 'Recusado'
+      ? request.status
+      : 'Aguardando análise';
+  const requesterType: RequesterType = request.requesterType === 'Servidor' ? 'Servidor' : 'Aluno';
+  const courses: CourseType[] = ['Administração', 'Geografia', 'Biologia', 'Engenharia de Computação', 'N/A'];
+  const course = courses.find((item) => item === request.course);
+  return {
+    ...request,
+    id: String(request.id),
+    requesterType,
+    course,
+    status,
+  };
+}
+
+function toSchedulingPayload(request: SchedulingRequest): SchedulingRequestPayload {
+  return {
+    code: request.code,
+    requesterName: request.requesterName,
+    requesterType: request.requesterType,
+    course: request.course,
+    email: request.email,
+    registrationNumber: request.registrationNumber,
+    date: request.date,
+    dayOfWeek: request.dayOfWeek,
+    startTime: request.startTime,
+    endTime: request.endTime,
+    purpose: request.purpose,
+    reason: request.reason,
+    description: request.description,
+    equipment: request.equipment,
+    status: request.status,
+    workstation: request.workstation,
+    adminNotes: request.adminNotes,
+    rejectionReason: request.rejectionReason,
+    decidedAt: request.decidedAt,
+    decidedBy: request.decidedBy,
+  };
+}
+
 export default function AgendamentoAdmPage() {
+  const authorized = useAdminAccess();
   const [requests, setRequests] = useState<SchedulingRequest[]>(INITIAL_REQUESTS);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('Todos');
@@ -375,11 +153,26 @@ export default function AgendamentoAdmPage() {
     type: 'success' | 'error' | 'info';
   } | null>(null);
 
-  function showToast(text: string, type: 'success' | 'error' | 'info' = 'success') {
+  const showToast = useCallback((text: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToastMessage({ text, type });
     setTimeout(() => {
       setToastMessage(null);
     }, 4500);
+  }, []);
+
+  useEffect(() => {
+    if (!authorized) return;
+    getSchedulingRequests()
+      .then((data) => setRequests(data.map(toSchedulingRequest)))
+      .catch(() => showToast('Não foi possível carregar os agendamentos. Verifique a conexão com o servidor.', 'error'));
+  }, [authorized, showToast]);
+
+  async function saveRequest(request: SchedulingRequest) {
+    const saved = await updateSchedulingRequest(request.id, toSchedulingPayload(request));
+    const updated = toSchedulingRequest(saved);
+    setRequests((previous) => previous.map((item) => item.id === updated.id ? updated : item));
+    setSelectedRequest((current) => current?.id === updated.id ? updated : current);
+    return updated;
   }
 
   // Abertura do Modal de Aceite
@@ -391,45 +184,26 @@ export default function AgendamentoAdmPage() {
   }
 
   // Confirmação do Aceite do Agendamento
-  function confirmAccept() {
+  async function confirmAccept() {
     if (!acceptingRequest) return;
     const now = new Date();
     const formattedDate = `${now.toLocaleDateString('pt-BR')} ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
-
-    setRequests((prev) =>
-      prev.map((item) =>
-        item.id === acceptingRequest.id
-          ? {
-              ...item,
-              status: 'Aprovado',
-              workstation: allocatedWorkstation || item.workstation,
-              adminNotes: approvalNotes || undefined,
-              rejectionReason: undefined,
-              decidedAt: formattedDate,
-              decidedBy: 'Monitor ADM',
-            }
-          : item
-      )
-    );
-
-    if (selectedRequest && selectedRequest.id === acceptingRequest.id) {
-      setSelectedRequest((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: 'Aprovado',
-              workstation: allocatedWorkstation || prev.workstation,
-              adminNotes: approvalNotes || undefined,
-              rejectionReason: undefined,
-              decidedAt: formattedDate,
-              decidedBy: 'Monitor ADM',
-            }
-          : null
-      );
+    const updated = {
+      ...acceptingRequest,
+      status: 'Aprovado' as const,
+      workstation: allocatedWorkstation || acceptingRequest.workstation,
+      adminNotes: approvalNotes || undefined,
+      rejectionReason: undefined,
+      decidedAt: formattedDate,
+      decidedBy: 'Monitor ADM',
+    };
+    try {
+      await saveRequest(updated);
+      showToast(`Agendamento ${acceptingRequest.code} aceito com sucesso!`, 'success');
+      setAcceptingRequest(null);
+    } catch {
+      showToast('Não foi possível atualizar o agendamento. Tente novamente.', 'error');
     }
-
-    showToast(`Agendamento ${acceptingRequest.code} aceito com sucesso!`, 'success');
-    setAcceptingRequest(null);
   }
 
   // Abertura do Modal de Recusa
@@ -440,105 +214,96 @@ export default function AgendamentoAdmPage() {
   }
 
   // Confirmação da Recusa do Agendamento
-  function confirmReject() {
+  async function confirmReject() {
     if (!rejectingRequest) return;
     const now = new Date();
     const formattedDate = `${now.toLocaleDateString('pt-BR')} ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
     const reason = rejectionReasonText.trim() || 'Solicitação incompatível com a capacidade do laboratório nesta data.';
 
-    setRequests((prev) =>
-      prev.map((item) =>
-        item.id === rejectingRequest.id
-          ? {
-              ...item,
-              status: 'Recusado',
-              rejectionReason: reason,
-              adminNotes: undefined,
-              decidedAt: formattedDate,
-              decidedBy: 'Monitor ADM',
-            }
-          : item
-      )
-    );
-
-    if (selectedRequest && selectedRequest.id === rejectingRequest.id) {
-      setSelectedRequest((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: 'Recusado',
-              rejectionReason: reason,
-              adminNotes: undefined,
-              decidedAt: formattedDate,
-              decidedBy: 'Monitor ADM',
-            }
-          : null
-      );
+    const updated = {
+      ...rejectingRequest,
+      status: 'Recusado' as const,
+      rejectionReason: reason,
+      adminNotes: undefined,
+      decidedAt: formattedDate,
+      decidedBy: 'Monitor ADM',
+    };
+    try {
+      await saveRequest(updated);
+      showToast(`Agendamento ${rejectingRequest.code} recusado.`, 'error');
+      setRejectingRequest(null);
+    } catch {
+      showToast('Não foi possível atualizar o agendamento. Tente novamente.', 'error');
     }
-
-    showToast(`Agendamento ${rejectingRequest.code} recusado.`, 'error');
-    setRejectingRequest(null);
   }
 
   // Ação rápida: Reabrir para análise
-  function handleReopen(requestId: string, e?: React.MouseEvent) {
+  async function handleReopen(requestId: string, e?: React.MouseEvent) {
     if (e) e.stopPropagation();
-    setRequests((prev) =>
-      prev.map((req) =>
-        req.id === requestId
-          ? { ...req, status: 'Aguardando análise', rejectionReason: undefined, adminNotes: undefined }
-          : req
-      )
-    );
-    if (selectedRequest && selectedRequest.id === requestId) {
-      setSelectedRequest((prev) =>
-        prev
-          ? { ...prev, status: 'Aguardando análise', rejectionReason: undefined, adminNotes: undefined }
-          : null
-      );
-    }
     const target = requests.find((r) => r.id === requestId);
-    showToast(`Agendamento ${target ? target.code : ''} reaberto para análise.`, 'info');
+    if (!target) return;
+    try {
+      await saveRequest({
+        ...target,
+        status: 'Aguardando análise',
+        rejectionReason: undefined,
+        adminNotes: undefined,
+      });
+      showToast(`Agendamento ${target.code} reaberto para análise.`, 'info');
+    } catch {
+      showToast('Não foi possível reabrir o agendamento. Tente novamente.', 'error');
+    }
   }
 
   // Ações em lote: Aceitar múltiplos
-  function handleBatchAccept() {
+  async function handleBatchAccept() {
     if (selectedIds.length === 0) return;
     const now = new Date();
     const formattedDate = `${now.toLocaleDateString('pt-BR')} ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
-
-    setRequests((prev) =>
-      prev.map((req) =>
-        selectedIds.includes(req.id)
-          ? { ...req, status: 'Aprovado', decidedAt: formattedDate, decidedBy: 'Monitor ADM' }
-          : req
-      )
+    const chosen = requests.filter((request) => selectedIds.includes(request.id));
+    const results = await Promise.allSettled(chosen.map((request) => updateSchedulingRequest(
+      request.id,
+      toSchedulingPayload({ ...request, status: 'Aprovado', decidedAt: formattedDate, decidedBy: 'Monitor ADM' }),
+    )));
+    const updated = results.flatMap((result) => result.status === 'fulfilled' ? [toSchedulingRequest(result.value)] : []);
+    setRequests((previous) => previous.map((request) => updated.find((item) => item.id === request.id) ?? request));
+    const succeededIds = updated.map((request) => request.id);
+    setSelectedIds((previous) => previous.filter((id) => !succeededIds.includes(id)));
+    showToast(
+      results.some((result) => result.status === 'rejected')
+        ? `${updated.length} agendamento(s) aceito(s); alguns não puderam ser atualizados.`
+        : `${updated.length} agendamento(s) aceito(s) em lote!`,
+      results.some((result) => result.status === 'rejected') ? 'error' : 'success',
     );
-    showToast(`${selectedIds.length} agendamento(s) aceito(s) em lote!`, 'success');
-    setSelectedIds([]);
   }
 
   // Ações em lote: Recusar múltiplos
-  function handleBatchReject() {
+  async function handleBatchReject() {
     if (selectedIds.length === 0) return;
     const now = new Date();
     const formattedDate = `${now.toLocaleDateString('pt-BR')} ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
 
-    setRequests((prev) =>
-      prev.map((req) =>
-        selectedIds.includes(req.id)
-          ? {
-              ...req,
-              status: 'Recusado',
-              rejectionReason: 'Recusado em ação administrativa em lote.',
-              decidedAt: formattedDate,
-              decidedBy: 'Monitor ADM',
-            }
-          : req
-      )
+    const chosen = requests.filter((request) => selectedIds.includes(request.id));
+    const results = await Promise.allSettled(chosen.map((request) => updateSchedulingRequest(
+      request.id,
+      toSchedulingPayload({
+        ...request,
+        status: 'Recusado',
+        rejectionReason: 'Recusado em ação administrativa em lote.',
+        decidedAt: formattedDate,
+        decidedBy: 'Monitor ADM',
+      }),
+    )));
+    const updated = results.flatMap((result) => result.status === 'fulfilled' ? [toSchedulingRequest(result.value)] : []);
+    setRequests((previous) => previous.map((request) => updated.find((item) => item.id === request.id) ?? request));
+    const succeededIds = updated.map((request) => request.id);
+    setSelectedIds((previous) => previous.filter((id) => !succeededIds.includes(id)));
+    showToast(
+      results.some((result) => result.status === 'rejected')
+        ? `${updated.length} agendamento(s) recusado(s); alguns não puderam ser atualizados.`
+        : `${updated.length} agendamento(s) recusado(s) em lote.`,
+      'error',
     );
-    showToast(`${selectedIds.length} agendamento(s) recusado(s) em lote.`, 'error');
-    setSelectedIds([]);
   }
 
   // Filtragem dinâmica
@@ -607,6 +372,8 @@ export default function AgendamentoAdmPage() {
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
   }
+
+  if (!authorized) return <main className="p-10 text-center">Verificando acesso...</main>;
 
   return (
     <div className="min-h-screen bg-[#f5f7fb] text-[#050b33] flex flex-col font-sans selection:bg-[#7000ff]/20 selection:text-[#050b33]">
@@ -701,7 +468,7 @@ export default function AgendamentoAdmPage() {
             <SidebarItem
               icon={<Home className="w-5 h-5" />}
               label="Início"
-              href="/"
+              href="/admin"
               collapsed={!sidebarOpen}
             />
 
@@ -723,7 +490,7 @@ export default function AgendamentoAdmPage() {
             <SidebarItem
               icon={<Users className="w-5 h-5" />}
               label="Usuários"
-              href="#usuarios"
+              href="/usuarios"
               collapsed={!sidebarOpen}
             />
 
@@ -737,7 +504,7 @@ export default function AgendamentoAdmPage() {
             <SidebarItem
               icon={<Settings className="w-5 h-5" />}
               label="Configurações"
-              href="#configuracoes"
+              href="/configuracoes"
               collapsed={!sidebarOpen}
             />
           </div>

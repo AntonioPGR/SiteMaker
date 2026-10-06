@@ -15,6 +15,6 @@ public class AuthService {
     public AuthResponseDTO login(LoginDTO dto) {
         UserEntity user = userService.authenticate(dto.email(), dto.password());
         String token = jwtService.generateToken(user.getId(), user.getRole().name());
-        return new AuthResponseDTO(token, "Bearer", user.getId(), user.getRole().name());
+        return new AuthResponseDTO(token, "Bearer", user.getId(), user.getRole().name(), user.getName());
     }
 }

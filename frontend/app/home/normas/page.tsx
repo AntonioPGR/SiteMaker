@@ -1,5 +1,4 @@
 import Image from 'next/image';
-import Link from 'next/link';
 import {
   ArrowDownToLine,
   BookOpen,
@@ -10,6 +9,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import Header from '@/app/components/header';
+import { API_BASE_URL } from '@/app/lib/api';
 
 const normas = [
   {
@@ -227,7 +227,7 @@ export default function NormasPage() {
               </p>
 
               <a
-                href="/documentos/politica-uso-espaco-maker.pdf"
+                href={`${API_BASE_URL}/normas/pdf`}
                 target="_blank"
                 rel="noopener noreferrer"
                 download

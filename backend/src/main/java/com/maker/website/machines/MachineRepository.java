@@ -10,5 +10,7 @@ public interface MachineRepository extends JpaRepository<MachineEntity, Long> {
     List<MachineEntity> findAllByStatusNot(MachineStatusENUM statusENUM);
     Optional<MachineEntity> findByIdAndStatusNot(Long id, MachineStatusENUM StatusENUM);
 
-    Boolean existsByName(String name);
+    boolean existsByName(String name);
+
+    boolean existsByCode(String code);
 }

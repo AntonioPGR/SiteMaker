@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { User, Lock, Mail, CreditCard } from 'lucide-react';
-import { createUser } from '@/app/lib/api';
+import { createUser, loginUser } from '@/app/lib/api';
 import type { CreateUserRequest } from '@/app/types/api';
 import Header from '@/app/components/header';
 
@@ -41,7 +41,17 @@ export default function SignupPage() {
 
     try {
       const user = await createUser(form);
-      router.push(`/home/${user.id}`);
+      try {
+        const response = await loginUser({ email: form.email, password: form.password });
+        localStorage.setItem('authToken', `${response.tokenType} ${response.token}`);
+        localStorage.setItem('userId', String(response.userId));
+        localStorage.setItem('userRole', response.role);
+        localStorage.setItem('userName', response.userName);
+        window.dispatchEvent(new Event('auth-changed'));
+        router.push(response.role === 'ADMIN' ? '/admin' : '/');
+      } catch {
+        router.push(`/login?registered=1&email=${encodeURIComponent(user.email)}`);
+      }
     } catch {
       setError('Não foi possível criar sua conta. Confira os dados e tente novamente.');
     } finally {

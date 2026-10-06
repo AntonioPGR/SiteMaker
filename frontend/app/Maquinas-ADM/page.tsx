@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -35,9 +35,11 @@ import {
   Camera,
   Trash2,
   CheckCircle2,
-  AlertCircle
 } from 'lucide-react';
 import Header from '@/app/components/header';
+import { createMachine, deleteMachine, getMachines, updateMachine } from '@/app/lib/api';
+import { useAdminAccess } from '@/app/lib/use-admin-access';
+import type { MachineAPI, MachinePayload, MachineStatusAPI } from '@/app/types/api';
 
 export type MachineStatus = 'Em operação' | 'Disponível' | 'Inativo';
 export type MachineType = 'Impressão 3D' | 'Corte a Laser' | 'CNC';
@@ -50,85 +52,37 @@ export interface Machine {
   type: MachineType;
   status: MachineStatus;
   image: string;
+  access: 'FREE' | 'RESTRICTED';
 }
 
-const INITIAL_MACHINES: Machine[] = [
-  {
-    id: '1',
-    code: '#M001',
-    name: 'Impressão 3D',
-    description: 'Impressora 3D FDM para prototipagem e projetos diversos.',
-    type: 'Impressão 3D',
-    status: 'Em operação',
-    image: '/maquinas/m1.png',
-  },
-  {
-    id: '2',
-    code: '#M002',
-    name: 'Corte a Laser',
-    description: 'Máquina de corte e gravação a laser para materiais diversos.',
-    type: 'Corte a Laser',
-    status: 'Disponível',
-    image: '/maquinas/m2.png',
-  },
-  {
-    id: '3',
-    code: '#M003',
-    name: 'Creality CR200B',
-    description: 'Impressora 3D de alta precisão com grande volume de impressão.',
-    type: 'Impressão 3D',
-    status: 'Disponível',
-    image: '/maquinas/m3.png',
-  },
-  {
-    id: '4',
-    code: '#M004',
-    name: 'GTMAX3D Core H5',
-    description: 'Impressora 3D industrial para peças de maior resistência.',
-    type: 'Impressão 3D',
-    status: 'Disponível',
-    image: '/maquinas/m4.png',
-  },
-  {
-    id: '5',
-    code: '#M005',
-    name: 'Creality Ender 3 Pro',
-    description: 'Impressora 3D versátil e de fácil manutenção.',
-    type: 'Impressão 3D',
-    status: 'Em operação',
-    image: '/maquinas/m5.png',
-  },
-  {
-    id: '6',
-    code: '#M006',
-    name: 'GTMAX3D Core A3v2',
-    description: 'Impressora 3D de alta performance com dupla extrusão.',
-    type: 'Impressão 3D',
-    status: 'Disponível',
-    image: '/maquinas/m6.png',
-  },
-  {
-    id: '7',
-    code: '#M007',
-    name: 'Delta CNC',
-    description: 'Router CNC para usinagem de materiais como madeira, acrílico e MDF.',
-    type: 'CNC',
-    status: 'Inativo',
-    image: '/maquinas/m7.png',
-  },
-];
+const INITIAL_MACHINES: Machine[] = [];
+const PRESET_IMAGES = Array.from({ length: 7 }, (_, index) => `/maquinas/m${index + 1}.png`);
 
-const PRESET_IMAGES = [
-  '/maquinas/m1.png',
-  '/maquinas/m2.png',
-  '/maquinas/m3.png',
-  '/maquinas/m4.png',
-  '/maquinas/m5.png',
-  '/maquinas/m6.png',
-  '/maquinas/m7.png',
-];
+const machineStatusToApi: Record<MachineStatus, MachineStatusAPI> = {
+  'Em operação': 'FUNCTIONAL',
+  Disponível: 'AVAILABLE',
+  Inativo: 'MAINTENANCE',
+};
+
+function toMachine(machine: MachineAPI): Machine {
+  const type = machine.type === 'Corte a Laser' || machine.type === 'CNC' ? machine.type : 'Impressão 3D';
+  const status: MachineStatus =
+    machine.status === 'FUNCTIONAL' ? 'Em operação' :
+    machine.status === 'AVAILABLE' ? 'Disponível' : 'Inativo';
+  return {
+    id: String(machine.id),
+    code: machine.code ?? `#M${String(machine.id).padStart(3, '0')}`,
+    name: machine.name,
+    description: machine.description,
+    type,
+    status,
+    image: machine.image || `/maquinas/m${type === 'CNC' ? '7' : type === 'Corte a Laser' ? '2' : '1'}.png`,
+    access: machine.access,
+  };
+}
 
 export default function MaquinasAdmPage() {
+  const authorized = useAdminAccess();
   const [machines, setMachines] = useState<Machine[]>(INITIAL_MACHINES);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
@@ -160,12 +114,19 @@ export default function MaquinasAdmPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  function showToast(text: string) {
+  const showToast = useCallback((text: string) => {
     setToastMessage(text);
     setTimeout(() => {
       setToastMessage(null);
     }, 4000);
-  }
+  }, []);
+
+  useEffect(() => {
+    if (!authorized) return;
+    getMachines()
+      .then((data) => setMachines(data.map(toMachine)))
+      .catch(() => showToast('Não foi possível carregar as máquinas. Verifique a conexão com o servidor.'));
+  }, [authorized, showToast]);
 
   function handleOpenEdit(machine: Machine) {
     setEditingMachine(machine);
@@ -209,8 +170,21 @@ export default function MaquinasAdmPage() {
     }
   }
 
+  async function handleDeleteMachine(machine: Machine) {
+    if (!window.confirm(`Deseja desativar a máquina ${machine.name}?`)) return;
+    try {
+      await deleteMachine(machine.id);
+      setMachines((previous) => previous.map((item) =>
+        item.id === machine.id ? { ...item, status: 'Inativo' } : item
+      ));
+      showToast(`Máquina ${machine.name} desativada.`);
+    } catch {
+      showToast('Não foi possível desativar a máquina. Tente novamente.');
+    }
+  }
+
   // botão salvar máquina editada ou criada
-  function handleSaveMachine(e: React.FormEvent) {
+  async function handleSaveMachine(e: React.FormEvent) {
     e.preventDefault();
 
     if (!formData.name.trim()) {
@@ -218,39 +192,36 @@ export default function MaquinasAdmPage() {
       return;
     }
 
-    if (isCreatingNew) {
-      const newMachine: Machine = {
-        id: String(Date.now()),
-        code: formData.code.trim() || `#M00${machines.length + 1}`,
+    const payload: MachinePayload = {
         name: formData.name.trim(),
         description: formData.description.trim(),
+        code: formData.code.trim() || `#M00${machines.length + 1}`,
         type: formData.type,
-        status: formData.status,
+        status: machineStatusToApi[formData.status],
         image: formData.image || '/maquinas/m1.png',
-      };
-      setMachines((prev) => [newMachine, ...prev]);
-      showToast(`Máquina ${newMachine.name} cadastrada com sucesso!`);
-    } else if (editingMachine) {
-      setMachines((prev) =>
-        prev.map((m) =>
-          m.id === editingMachine.id
-            ? {
-                ...m,
-                name: formData.name.trim(),
-                code: formData.code.trim(),
-                description: formData.description.trim(),
-                type: formData.type,
-                status: formData.status,
-                image: formData.image,
-              }
-            : m
-        )
-      );
-      showToast(`Máquina ${formData.name} atualizada com sucesso!`);
-    }
+        access: editingMachine?.access ?? 'RESTRICTED',
+    };
 
-    setEditingMachine(null);
-    setIsCreatingNew(false);
+    try {
+      const saved = isCreatingNew
+        ? await createMachine(payload)
+        : editingMachine
+          ? await updateMachine(editingMachine.id, payload)
+          : null;
+      if (!saved) return;
+
+      const machine = toMachine(saved);
+      setMachines((previous) =>
+        isCreatingNew
+          ? [machine, ...previous]
+          : previous.map((item) => item.id === machine.id ? machine : item)
+      );
+      showToast(`Máquina ${machine.name} ${isCreatingNew ? 'cadastrada' : 'atualizada'} com sucesso!`);
+      setEditingMachine(null);
+      setIsCreatingNew(false);
+    } catch {
+      showToast('Não foi possível salvar a máquina. Confira os dados e tente novamente.');
+    }
   }
 
   // Filtragem dinâmica
@@ -275,6 +246,8 @@ export default function MaquinasAdmPage() {
   const inOperationCount = machines.filter((m) => m.status === 'Em operação').length;
   const availableCount = machines.filter((m) => m.status === 'Disponível').length;
   const inactiveCount = machines.filter((m) => m.status === 'Inativo').length;
+
+  if (!authorized) return <main className="p-10 text-center">Verificando acesso...</main>;
 
   return (
     <div className="min-h-screen bg-[#f5f7fb] text-[#050b33] flex flex-col font-sans selection:bg-[#7000ff]/20 selection:text-[#050b33]">
@@ -361,7 +334,7 @@ export default function MaquinasAdmPage() {
             <SidebarItem
               icon={<Home className="w-5 h-5" />}
               label="Início"
-              href="/"
+              href="/admin"
               collapsed={!sidebarOpen}
             />
 
@@ -383,7 +356,7 @@ export default function MaquinasAdmPage() {
             <SidebarItem
               icon={<Users className="w-5 h-5" />}
               label="Usuários"
-              href="#usuarios"
+              href="/usuarios"
               collapsed={!sidebarOpen}
             />
 
@@ -397,7 +370,7 @@ export default function MaquinasAdmPage() {
             <SidebarItem
               icon={<Settings className="w-5 h-5" />}
               label="Configurações"
-              href="#configuracoes"
+              href="/configuracoes"
               collapsed={!sidebarOpen}
             />
           </div>
@@ -406,7 +379,7 @@ export default function MaquinasAdmPage() {
             <SidebarItem
               icon={<LogOut className="w-5 h-5" />}
               label="Sair"
-              href="/"
+              href="/admin"
               collapsed={!sidebarOpen}
             />
           </div>
@@ -650,6 +623,15 @@ export default function MaquinasAdmPage() {
                               className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-[#050b33] hover:bg-slate-100 hover:border-slate-300 transition-colors cursor-pointer"
                             >
                               <MoreVertical className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteMachine(machine)}
+                              disabled={machine.status === 'Inativo'}
+                              title="Desativar máquina"
+                              className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-300 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                         </td>

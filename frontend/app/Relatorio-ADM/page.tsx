@@ -22,6 +22,7 @@ import {
 import Header from '@/app/components/header';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { useAdminAccess } from '@/app/lib/use-admin-access';
 
 export type MachineStatus = 'Em operação' | 'Disponível' | 'Inativo';
 export type MachineType = 'Impressão 3D' | 'Corte a Laser' | 'CNC';
@@ -47,6 +48,7 @@ const INITIAL_MACHINES: Machine[] = [
 ];
 
 export default function RelatoriosPage() {
+  const authorized = useAdminAccess();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -153,6 +155,8 @@ export default function RelatoriosPage() {
     document.body.removeChild(link);
   };
 
+  if (!authorized) return <main className="p-10 text-center">Verificando acesso...</main>;
+
   return (
     <div className="min-h-screen bg-[#f5f7fb] text-[#050b33] flex flex-col font-sans selection:bg-[#7000ff]/20 selection:text-[#050b33]">
       <Header authenticated />
@@ -235,7 +239,7 @@ export default function RelatoriosPage() {
               </div>
             )}
 
-            <SidebarItem icon={<Home className="w-5 h-5" />} label="Início" href="/" collapsed={!sidebarOpen} />
+            <SidebarItem icon={<Home className="w-5 h-5" />} label="Início" href="/admin" collapsed={!sidebarOpen} />
             <SidebarItem icon={<Wrench className="w-5 h-5" />} label="Máquinas" href="/Maquinas-ADM" collapsed={!sidebarOpen} />
             <SidebarItem icon={<Calendar className="w-5 h-5" />} label="Agendamentos" href="/Agendamento-ADM" collapsed={!sidebarOpen} />
             <SidebarItem icon={<Users className="w-5 h-5" />} label="Usuários" href="#usuarios" collapsed={!sidebarOpen} />
@@ -244,7 +248,7 @@ export default function RelatoriosPage() {
           </div>
 
           <div className="p-3.5 border-t border-white/10 relative z-10 bg-[#050b33]">
-            <SidebarItem icon={<LogOut className="w-5 h-5" />} label="Sair" href="/" collapsed={!sidebarOpen} />
+            <SidebarItem icon={<LogOut className="w-5 h-5" />} label="Sair" href="/login" collapsed={!sidebarOpen} />
           </div>
         </aside>
 

@@ -26,14 +26,23 @@ public class MachineEntity {
 
     private String name;
 
+    @Column(unique = true)
+    private String code;
+
     @Column(nullable = false)
     private String description;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private MachineStatusENUM status;
 
     @Enumerated(EnumType.STRING)
     private MachineAccessENUM access;
+
+    private String type;
+
+    @Column(columnDefinition = "text")
+    private String image;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

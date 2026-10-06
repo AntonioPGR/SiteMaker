@@ -23,7 +23,11 @@ export default function LoginPage() {
     try {
       const response = await loginUser(form);
       localStorage.setItem('authToken', `${response.tokenType} ${response.token}`);
-      router.push(`/home/${response.userId}`);
+      localStorage.setItem('userId', String(response.userId));
+      localStorage.setItem('userRole', response.role);
+      localStorage.setItem('userName', response.userName);
+      window.dispatchEvent(new Event('auth-changed'));
+      router.push(response.role === 'ADMIN' ? '/admin' : '/');
     } catch {
       setError('E-mail ou senha inválidos. Tente novamente.');
     } finally {

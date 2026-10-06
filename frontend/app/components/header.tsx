@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useSyncExternalStore } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
@@ -12,65 +12,61 @@ interface HeaderProps {
   userId?: string;
 }
 
+function subscribeToAuth(callback: () => void) {
+  window.addEventListener('storage', callback);
+  window.addEventListener('auth-changed', callback);
+  return () => {
+    window.removeEventListener('storage', callback);
+    window.removeEventListener('auth-changed', callback);
+  };
+}
+
+function getStoredRole() {
+  return localStorage.getItem('userRole') ?? '';
+}
+
+function getStoredUserId() {
+  return localStorage.getItem('userId') ?? '';
+}
+
+function getStoredUserName() {
+  return localStorage.getItem('userName') ?? '';
+}
+
+function getStoredToken() {
+  return localStorage.getItem('authToken') ?? '';
+}
+
 export default function Header({ authenticated, userName, userId }: HeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const [isAuth, setIsAuth] = useState<boolean>(false);
-  const [displayName, setDisplayName] = useState<string>('');
-  const [currentUserId, setCurrentUserId] = useState<string>('');
+  const storedUserName = useSyncExternalStore(subscribeToAuth, getStoredUserName, () => '');
+  const storedUserId = useSyncExternalStore(subscribeToAuth, getStoredUserId, () => '');
+  const storedToken = useSyncExternalStore(subscribeToAuth, getStoredToken, () => '');
+  const userRole = useSyncExternalStore(subscribeToAuth, getStoredRole, () => '');
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+  const displayName = userName ?? storedUserName;
+  const currentUserId = userId ?? storedUserId;
+  const isAuth = authenticated ?? Boolean(storedToken || displayName);
 
   // Verificadores de rota para realce visual
   const isInicio = pathname === '/';
   const isAgendamento = pathname === '/Agendamento-ADM';
   const isNormas = pathname === '/normas';
 
-  useEffect(() => {
-    // 1. Regista/recupera o ID do utilizador
-    if (userId) {
-      setCurrentUserId(userId);
-      localStorage.setItem('userId', userId);
-    } else {
-      const storedId = localStorage.getItem('userId');
-      if (storedId) setCurrentUserId(storedId);
-    }
-
-    // 2. Regista/recupera o Nome do utilizador
-    if (userName) {
-      setDisplayName(userName);
-      setIsAuth(true);
-      localStorage.setItem('userName', userName);
-      return;
-    }
-
-    const storedName = localStorage.getItem('userName');
-    const storedToken = localStorage.getItem('authToken');
-
-    if (storedName) {
-      setDisplayName(storedName);
-      setIsAuth(true);
-    } else if (authenticated || storedToken) {
-      setIsAuth(true);
-    } else {
-      setIsAuth(false);
-    }
-  }, [userName, userId, authenticated]);
-
   function handleLogout() {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('userName');
       localStorage.removeItem('userId');
       localStorage.removeItem('authToken');
-      localStorage.clear();
+      localStorage.removeItem('userRole');
+      window.dispatchEvent(new Event('auth-changed'));
     }
-    setIsAuth(false);
-    setDisplayName('');
-    setCurrentUserId('');
     router.push('/login');
   }
 
-  const profileHref = currentUserId ? `/home/${currentUserId}` : '#';
+  const profileHref = userRole === 'ADMIN' ? '/admin' : currentUserId ? `/home/${currentUserId}` : '/';
 
   return (
     <header className="relative z-20 border-b border-white/10 bg-[#050b33] px-5 py-4 text-white shadow-md sm:px-8">
@@ -91,24 +87,13 @@ export default function Header({ authenticated, userName, userId }: HeaderProps)
           {/* Links de Navegação Desktop */}
           <nav className="hidden items-center gap-6 text-sm font-semibold lg:flex">
             <Link href="/" className="transition-colors hover:text-[#00ff9d]">Início</Link>
-            <Link href="/#materiais" className="transition-colors hover:text-[#00ff9d]">Materiais</Link>
-            <Link href="/#maquinas" className="transition-colors hover:text-[#00ff9d]">Máquinas</Link>
-            <Link href="/#pedidos" className="transition-colors hover:text-[#00ff9d]">Pedidos</Link>
-            <Link href="/#emprestimos" className="transition-colors hover:text-[#00ff9d]">Empréstimos</Link>
+            <Link href="/materiais" className="transition-colors hover:text-[#00ff9d]">Materiais</Link>
+            <Link href="/maquinas" className="transition-colors hover:text-[#00ff9d]">Máquinas</Link>
+            <Link href="/pedidos" className="transition-colors hover:text-[#00ff9d]">Pedidos</Link>
+            <Link href="/emprestimos" className="transition-colors hover:text-[#00ff9d]">Empréstimos</Link>
             <Link href="/normas" className="transition-colors hover:text-[#00ff9d]">Normas</Link>
-
-            {/* TODO / FUTURO: Inserir verificação para exibir apenas para administradores (ex: isAdmin) */}
-            <Link
-              href="/Agendamento-ADM"
-              className={`inline-flex items-center gap-1.5 transition-colors hover:text-[#00ff9d] ${
-                isAgendamento ? 'text-[#00ff9d]' : ''
-              }`}
-            >
-              <span>Agendamento</span>
-              <span className="rounded-full bg-[#7000ff] px-1.5 py-0.5 text-[10px] font-bold text-white">
-                ADM
-              </span>
-            </Link>
+            {userRole === 'ADMIN' && <Link href="/admin" className="text-[#00ff9d]">Painel ADM</Link>}
+            {userRole === 'ADMIN' && <Link href="/usuarios" className="transition-colors hover:text-[#00ff9d]">Usuários</Link>}
           </nav>
         </div>
 
@@ -186,43 +171,50 @@ export default function Header({ authenticated, userName, userId }: HeaderProps)
             Início
           </Link>
           <Link
-            href="/#materiais"
+            href="/materiais"
             onClick={() => setMobileMenuOpen(false)}
             className="px-3 py-2 rounded-lg font-semibold text-sm text-white/90 hover:bg-white/5 transition-colors"
           >
             Materiais
           </Link>
           <Link
-            href="/#maquinas"
+            href="/maquinas"
             onClick={() => setMobileMenuOpen(false)}
             className="px-3 py-2 rounded-lg font-semibold text-sm text-white/90 hover:bg-white/5 transition-colors"
           >
             Máquinas
           </Link>
           <Link
-            href="/#pedidos"
+            href="/pedidos"
             onClick={() => setMobileMenuOpen(false)}
             className="px-3 py-2 rounded-lg font-semibold text-sm text-white/90 hover:bg-white/5 transition-colors"
           >
             Pedidos
           </Link>
           <Link
-            href="/#emprestimos"
+            href="/emprestimos"
             onClick={() => setMobileMenuOpen(false)}
             className="px-3 py-2 rounded-lg font-semibold text-sm text-white/90 hover:bg-white/5 transition-colors"
           >
             Empréstimos
           </Link>
-          <Link
-            href="/Agendamento-ADM"
-            onClick={() => setMobileMenuOpen(false)}
-            className={`px-3 py-2 rounded-lg font-semibold text-sm flex items-center justify-between transition-colors ${
-              isAgendamento ? 'bg-white/10 text-[#00ff9d]' : 'text-white/90 hover:bg-white/5'
-            }`}
-          >
-            <span>Agendamento</span>
-            <span className="text-[10px] bg-[#7000ff] text-white px-2 py-0.5 rounded-full font-bold">ADM</span>
-          </Link>
+          {userRole === 'ADMIN' && (
+            <>
+              <Link href="/admin" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg font-semibold text-sm text-white/90 hover:bg-white/5">Painel administrativo</Link>
+              <Link
+                href="/Agendamento-ADM"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`px-3 py-2 rounded-lg font-semibold text-sm flex items-center justify-between transition-colors ${
+                  isAgendamento ? 'bg-white/10 text-[#00ff9d]' : 'text-white/90 hover:bg-white/5'
+                }`}
+              >
+                <span>Agendamento ADM</span>
+              </Link>
+              <Link href="/Maquinas-ADM" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg font-semibold text-sm text-white/90 hover:bg-white/5">Máquinas ADM</Link>
+              <Link href="/Relatorio-ADM" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg font-semibold text-sm text-white/90 hover:bg-white/5">Relatórios ADM</Link>
+              <Link href="/usuarios" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 rounded-lg font-semibold text-sm text-white/90 hover:bg-white/5">Controle de usuários</Link>
+            </>
+          )}
           <Link
             href="/normas"
             onClick={() => setMobileMenuOpen(false)}

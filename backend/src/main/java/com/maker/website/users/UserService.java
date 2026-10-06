@@ -26,9 +26,9 @@ public class UserService {
                 .stream().map(UserResponseDTO::new).toList();
     }
 
-    public UserResponseDTO getUserById(Long requestedId) {
-        //UserEntity authenticatedUser = findActiveUserById(authenticatedId);
-        //requireOwnerOrAdmin(authenticatedUser, requestedId);
+    public UserResponseDTO getUserById(Long requestedId, Long authenticatedId) {
+        UserEntity authenticatedUser = findActiveUserById(authenticatedId);
+        requireOwnerOrAdmin(authenticatedUser, requestedId);
         return new UserResponseDTO(findActiveUserById(requestedId));
     }
 
