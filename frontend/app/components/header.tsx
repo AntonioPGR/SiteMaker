@@ -93,7 +93,6 @@ export default function Header({ authenticated, userName, userId }: HeaderProps)
             <Link href="/emprestimos" className="transition-colors hover:text-[#00ff9d]">Empréstimos</Link>
             <Link href="/normas" className="transition-colors hover:text-[#00ff9d]">Normas</Link>
             {userRole === 'ADMIN' && <Link href="/admin" className="text-[#00ff9d]">Painel ADM</Link>}
-            {userRole === 'ADMIN' && <Link href="/usuarios" className="transition-colors hover:text-[#00ff9d]">Usuários</Link>}
           </nav>
         </div>
 
