@@ -19,13 +19,23 @@ export default function SignupPage() {
   });
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   function updateField(field: keyof CreateUserRequest, value: string) {
     setForm((currentForm) => ({ ...currentForm, [field]: value }));
   }
 
+  function handleCheckboxChange(event: React.ChangeEvent<HTMLInputElement>) {
+  setAcceptedTerms(event.target.checked);
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!acceptedTerms) {
+      setError('Você precisa aceitar as normas e regras para prosseguir.');
+      return;
+    }
+
     setError('');
     setIsSubmitting(true);
 
@@ -138,6 +148,19 @@ export default function SignupPage() {
                   required
                   className="w-full px-3 py-2 outline-none text-sm font-semibold text-gray-800 placeholder-gray-500"
                 />
+              </div>
+
+              {/* Checkbox de Aceite das Normas e Regras */}
+              <div className="flex items-center gap-2 mt-2">
+                <input 
+                  type="checkbox" 
+                  checked={acceptedTerms} 
+                  onChange={handleCheckboxChange} 
+                  className="h-4 w-4 text-[#050b33] border-gray-300 rounded focus:ring-[#050b33]"
+                />
+                <label htmlFor="terms" className="text-xs text-gray-600">
+                  Aceito as <Link href="/normas" className="text-[#050b33] hover:underline">Normas e Regras</Link>
+                </label>
               </div>
 
               {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
