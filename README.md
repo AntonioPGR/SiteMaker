@@ -148,7 +148,8 @@ ADMIN_EMAIL=admin@example.org ADMIN_PASSWORD='use-a-unique-long-password' ./mvnw
 
 O CRUD administrativo de máquinas está disponível em `/api/machines`, o de
 agendamentos em `/api/agendamentos`, a gestão de usuários em `/api/users` e a
-promoção a administrador em `PATCH /api/users/{id}/promote-to-admin`. O PDF
-demonstrativo das normas está em `GET /api/normas/pdf`. Configure
+promoção a administrador em `PATCH /api/users/{id}/promote-to-admin`. O PDF real
+da política de uso, servido de `backend/src/main/resources/static/`, está em
+`GET /api/normas/pdf`. Configure
 `NEXT_PUBLIC_API_BASE_URL` no frontend somente quando a API estiver hospedada
 fora de `http://localhost:8081/api`.

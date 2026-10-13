@@ -230,7 +230,6 @@ export default function NormasPage() {
                 href={`${API_BASE_URL}/normas/pdf`}
                 target="_blank"
                 rel="noopener noreferrer"
-                download
                 className="mt-7 inline-flex items-center justify-center gap-2 rounded-md bg-white px-6 py-3 text-sm font-extrabold uppercase tracking-wider text-[#050b33] shadow-md transition-all hover:-translate-y-0.5 hover:bg-gray-100"
               >
                 <ArrowDownToLine className="h-4 w-4" />
