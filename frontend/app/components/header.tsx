@@ -96,6 +96,19 @@ export default function Header({ authenticated, userName, userId }: HeaderProps)
             <Link href="/#pedidos" className="transition-colors hover:text-[#00ff9d]">Pedidos</Link>
             <Link href="/#emprestimos" className="transition-colors hover:text-[#00ff9d]">Empréstimos</Link>
             <Link href="/normas" className="transition-colors hover:text-[#00ff9d]">Normas</Link>
+
+            {/* TODO / FUTURO: Inserir verificação para exibir apenas para administradores (ex: isAdmin) */}
+            <Link
+              href="/Agendamento-ADM"
+              className={`inline-flex items-center gap-1.5 transition-colors hover:text-[#00ff9d] ${
+                isAgendamento ? 'text-[#00ff9d]' : ''
+              }`}
+            >
+              <span>Agendamento</span>
+              <span className="rounded-full bg-[#7000ff] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                ADM
+              </span>
+            </Link>
           </nav>
         </div>
 

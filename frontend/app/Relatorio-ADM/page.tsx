@@ -239,7 +239,7 @@ export default function RelatoriosPage() {
             <SidebarItem icon={<Wrench className="w-5 h-5" />} label="Máquinas" href="/Maquinas-ADM" collapsed={!sidebarOpen} />
             <SidebarItem icon={<Calendar className="w-5 h-5" />} label="Agendamentos" href="/Agendamento-ADM" collapsed={!sidebarOpen} />
             <SidebarItem icon={<Users className="w-5 h-5" />} label="Usuários" href="#usuarios" collapsed={!sidebarOpen} />
-            <SidebarItem icon={<BarChart3 className="w-5 h-5" />} label="Relatórios" href="#relatorios" active collapsed={!sidebarOpen} />
+            <SidebarItem icon={<BarChart3 className="w-5 h-5" />} label="Relatórios" href="/Relatorio-ADM" active collapsed={!sidebarOpen} />
             <SidebarItem icon={<Settings className="w-5 h-5" />} label="Configurações" href="#configuracoes" collapsed={!sidebarOpen} />
           </div>
 
