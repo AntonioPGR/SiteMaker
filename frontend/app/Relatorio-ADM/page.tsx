@@ -17,13 +17,14 @@ import {
   ShieldCheck,
   ChevronDown,
   FileText,
-  Table
+  Table,
+  UserCheck
 } from 'lucide-react';
 import Header from '@/app/components/header';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { useAdminAccess } from '@/app/lib/use-admin-access';
 
+// --- TIPAGENS E DADOS DE MÁQUINAS ---
 export type MachineStatus = 'Em operação' | 'Disponível' | 'Inativo';
 export type MachineType = 'Impressão 3D' | 'Corte a Laser' | 'CNC';
 
@@ -47,37 +48,56 @@ const INITIAL_MACHINES: Machine[] = [
   { id: '7', code: '#M007', name: 'Delta CNC', description: 'Router CNC para usinagem.', type: 'CNC', status: 'Inativo', image: '/machines/m7.png' },
 ];
 
+// --- TIPAGENS E DADOS DE USUÁRIOS ---
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  cpf: string;
+  phone: string;
+  type: 'ALUNO' | 'PROFESSOR' | 'FUNCIONARIO' | 'VISITANTE';
+  profile: 'USER' | 'ADMIN';
+  status: 'ACTIVE' | 'INACTIVE';
+  birthDate: string;
+  createdAt: string;
+}
+
+const INITIAL_USERS: User[] = [
+  { id: '1', name: 'Ian Santos', email: 'ian@123', cpf: '40028922', phone: '+5535992202021', type: 'ALUNO', profile: 'USER', status: 'ACTIVE', birthDate: '2026-10-18', createdAt: '18/10/2026, 19:48:13' },
+  { id: '2', name: 'Maria Oliveira', email: 'maria.oli@email.com', cpf: '12345678901', phone: '+5535988887777', type: 'PROFESSOR', profile: 'ADMIN', status: 'ACTIVE', birthDate: '1985-04-12', createdAt: '10/09/2026, 14:22:00' },
+  { id: '3', name: 'João Silva', email: 'joao.silva@email.com', cpf: '98765432100', phone: '+5535977776666', type: 'ALUNO', profile: 'USER', status: 'INACTIVE', birthDate: '2001-08-25', createdAt: '12/09/2026, 09:15:30' },
+  { id: '4', name: 'Ana Costa', email: 'ana.costa@email.com', cpf: '45612378900', phone: '+5535966665555', type: 'ALUNO', profile: 'USER', status: 'ACTIVE', birthDate: '1999-11-03', createdAt: '15/09/2026, 11:40:12' },
+  { id: '5', name: 'Carlos Santos', email: 'carlos.s@email.com', cpf: '32165498700', phone: '+5535955554444', type: 'FUNCIONARIO', profile: 'ADMIN', status: 'ACTIVE', birthDate: '1990-02-18', createdAt: '20/09/2026, 16:05:45' },
+  { id: '6', name: 'Beatriz Lima', email: 'bia.lima@email.com', cpf: '15975345600', phone: '+5535944443333', type: 'ALUNO', profile: 'USER', status: 'ACTIVE', birthDate: '2003-07-30', createdAt: '01/10/2026, 10:20:10' },
+  { id: '7', name: 'Pedro Alves', email: 'pedro.alves@email.com', cpf: '75315985200', phone: '+5535933332222', type: 'VISITANTE', profile: 'USER', status: 'INACTIVE', birthDate: '1995-12-05', createdAt: '05/10/2026, 13:50:22' },
+  { id: '8', name: 'Fernanda Gomes', email: 'fernanda.g@email.com', cpf: '85296374100', phone: '+5535922221111', type: 'PROFESSOR', profile: 'USER', status: 'ACTIVE', birthDate: '1982-09-14', createdAt: '08/10/2026, 08:30:05' },
+  { id: '9', name: 'Lucas Martins', email: 'lucas.m@email.com', cpf: '36925814700', phone: '+5535911110000', type: 'ALUNO', profile: 'USER', status: 'ACTIVE', birthDate: '2000-05-22', createdAt: '12/10/2026, 15:10:40' },
+  { id: '10', name: 'Juliana Rocha', email: 'ju.rocha@email.com', cpf: '14725836900', phone: '+5535900009999', type: 'ALUNO', profile: 'USER', status: 'ACTIVE', birthDate: '2002-01-10', createdAt: '16/10/2026, 18:00:00' },
+];
+
 export default function RelatoriosPage() {
-  const authorized = useAdminAccess();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // --- RELATÓRIO DE MÁQUINAS (PDF) ---
   const handleExportPDF = () => {
     const doc = new jsPDF();
-    
-    // Captura a data e hora atual do sistema
     const dataAtual = new Date().toLocaleDateString('pt-BR');
     const horaAtual = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-    // Carrega a logo da pasta public
     const logo = new window.Image();
     logo.src = '/labmaker.png';
     
     logo.onload = () => {
-      // 1. Cabeçalho (Logo)
       doc.addImage(logo, 'PNG', 14, 12, 45, 13);
-      
-      // 2. Título Principal
       doc.setFontSize(20);
-      doc.setTextColor(5, 11, 51); // #050b33
+      doc.setTextColor(5, 11, 51);
       doc.text('Relatório de Status das Máquinas', 14, 38);
       
-      // 3. Subtítulo com Data e Hora
       doc.setFontSize(10);
-      doc.setTextColor(86, 97, 125); // #56617d
+      doc.setTextColor(86, 97, 125);
       doc.text(`Documento gerado em ${dataAtual} às ${horaAtual}`, 14, 45);
 
-      // 4. Configuração dos Dados
       const tableColumn = ["CÓDIGO", "MÁQUINA", "TIPO", "STATUS"];
       const tableRows = INITIAL_MACHINES.map(machine => [
         machine.code,
@@ -86,32 +106,17 @@ export default function RelatoriosPage() {
         machine.status
       ]);
 
-      // 5. Geração da Tabela com Design Personalizado
       autoTable(doc, {
         startY: 52,
         head: [tableColumn],
         body: tableRows,
-        styles: { 
-          font: 'helvetica', 
-          fontSize: 10, 
-          cellPadding: 5,
-          lineColor: [223, 228, 238], // #dfe4ee
-          lineWidth: 0.1
-        },
-        headStyles: { 
-          fillColor: [5, 11, 51], 
-          textColor: [255, 255, 255], 
-          fontStyle: 'bold' 
-        },
-        alternateRowStyles: { 
-          fillColor: [245, 247, 251] // #f5f7fb
-        },
-        // 6. Rodapé Dinâmico em todas as páginas
+        styles: { font: 'helvetica', fontSize: 10, cellPadding: 5, lineColor: [223, 228, 238], lineWidth: 0.1 },
+        headStyles: { fillColor: [5, 11, 51], textColor: [255, 255, 255], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [245, 247, 251] },
         didDrawPage: function (data) {
           const str = 'Página ' + doc.getCurrentPageInfo().pageNumber;
           doc.setFontSize(8);
           doc.setTextColor(150, 150, 150);
-          
           const pageSize = doc.internal.pageSize;
           const pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
           doc.text(str, data.settings.margin.left, pageHeight - 10);
@@ -119,25 +124,93 @@ export default function RelatoriosPage() {
         }
       });
 
-      // Baixa o arquivo com nome dinâmico
-      doc.save(`LabMaker_Relatorio_${dataAtual.replace(/\//g, '-')}.pdf`);
-    };
-
-    // Fallback caso a imagem não carregue
-    logo.onerror = () => {
-      console.error('Erro ao carregar a logo. Verifique se /labmaker.png existe na pasta public.');
+      doc.save(`LabMaker_Maquinas_${dataAtual.replace(/\//g, '-')}.pdf`);
     };
   };
 
+  // --- RELATÓRIO DE MÁQUINAS (CSV) ---
   const handleExportCSV = () => {
     const headers = ['Código', 'Máquina', 'Descrição', 'Tipo', 'Status'];
+    const rows = INITIAL_MACHINES.map(m => [`"${m.code}"`, `"${m.name}"`, `"${m.description}"`, `"${m.type}"`, `"${m.status}"`]);
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     
-    const rows = INITIAL_MACHINES.map(m => [
-      `"${m.code}"`, 
-      `"${m.name}"`, 
-      `"${m.description}"`, 
-      `"${m.type}"`, 
-      `"${m.status}"`
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'LabMaker_Maquinas.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // --- RELATÓRIO DE USUÁRIOS (PDF) ---
+  const handleExportUsersPDF = () => {
+    const doc = new jsPDF('landscape');
+    const dataAtual = new Date().toLocaleDateString('pt-BR');
+    const horaAtual = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    const logo = new window.Image();
+    logo.src = '/labmaker.png';
+    
+    logo.onload = () => {
+      doc.addImage(logo, 'PNG', 14, 12, 45, 13);
+      
+      doc.setFontSize(20);
+      doc.setTextColor(5, 11, 51);
+      doc.text('Relatório de Usuários Cadastrados', 14, 38);
+      
+      doc.setFontSize(10);
+      doc.setTextColor(86, 97, 125);
+      doc.text(`Documento gerado em ${dataAtual} às ${horaAtual}`, 14, 45);
+
+      const tableColumn = ["NOME", "E-MAIL", "CPF", "CELULAR", "TIPO", "PERFIL", "STATUS"];
+      const tableRows = INITIAL_USERS.map(user => [
+        user.name,
+        user.email,
+        user.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4"), 
+        user.phone,
+        user.type,
+        user.profile,
+        user.status === 'ACTIVE' ? 'Ativo' : 'Inativo'
+      ]);
+
+      autoTable(doc, {
+        startY: 52,
+        head: [tableColumn],
+        body: tableRows,
+        styles: { font: 'helvetica', fontSize: 9, cellPadding: 5, lineColor: [223, 228, 238], lineWidth: 0.1 },
+        headStyles: { fillColor: [5, 11, 51], textColor: [255, 255, 255], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [245, 247, 251] },
+        didDrawPage: function (data) {
+          const str = 'Página ' + doc.getCurrentPageInfo().pageNumber;
+          doc.setFontSize(8);
+          doc.setTextColor(150, 150, 150);
+          const pageSize = doc.internal.pageSize;
+          const pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
+          doc.text(str, data.settings.margin.left, pageHeight - 10);
+          doc.text('Lab Maker - Laboratório de Fabricação Digital PUC Minas', 210, pageHeight - 10);
+        }
+      });
+
+      doc.save(`LabMaker_Usuarios_${dataAtual.replace(/\//g, '-')}.pdf`);
+    };
+  };
+
+  // --- RELATÓRIO DE USUÁRIOS (CSV) ---
+  const handleExportUsersCSV = () => {
+    const headers = ['Nome', 'E-mail', 'CPF', 'Celular', 'Tipo', 'Perfil', 'Status', 'Data de Nascimento', 'Criado em'];
+    
+    const rows = INITIAL_USERS.map(user => [
+      `"${user.name}"`,
+      `"${user.email}"`,
+      `"${user.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4")}"`, 
+      `"${user.phone}"`,
+      `"${user.type}"`,
+      `"${user.profile}"`,
+      `"${user.status === 'ACTIVE' ? 'Ativo' : 'Inativo'}"`,
+      `"${user.birthDate}"`,
+      `"${user.createdAt}"`
     ]);
     
     const csvContent = [
@@ -145,17 +218,16 @@ export default function RelatoriosPage() {
       ...rows.map(r => r.join(','))
     ].join('\n');
     
+    // O '\uFEFF' força o CSV a ser reconhecido como UTF-8, garantindo que acentos funcionem no Excel
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'LabMaker_Relatorio_Maquinas.csv');
+    link.setAttribute('download', 'LabMaker_Usuarios.csv');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
-
-  if (!authorized) return <main className="p-10 text-center">Verificando acesso...</main>;
 
   return (
     <div className="min-h-screen bg-[#f5f7fb] text-[#050b33] flex flex-col font-sans selection:bg-[#7000ff]/20 selection:text-[#050b33]">
@@ -239,7 +311,7 @@ export default function RelatoriosPage() {
               </div>
             )}
 
-            <SidebarItem icon={<Home className="w-5 h-5" />} label="Início" href="/admin" collapsed={!sidebarOpen} />
+            <SidebarItem icon={<Home className="w-5 h-5" />} label="Início" href="/" collapsed={!sidebarOpen} />
             <SidebarItem icon={<Wrench className="w-5 h-5" />} label="Máquinas" href="/Maquinas-ADM" collapsed={!sidebarOpen} />
             <SidebarItem icon={<Calendar className="w-5 h-5" />} label="Agendamentos" href="/Agendamento-ADM" collapsed={!sidebarOpen} />
             <SidebarItem icon={<Users className="w-5 h-5" />} label="Usuários" href="#usuarios" collapsed={!sidebarOpen} />
@@ -248,35 +320,67 @@ export default function RelatoriosPage() {
           </div>
 
           <div className="p-3.5 border-t border-white/10 relative z-10 bg-[#050b33]">
-            <SidebarItem icon={<LogOut className="w-5 h-5" />} label="Sair" href="/login" collapsed={!sidebarOpen} />
+            <SidebarItem icon={<LogOut className="w-5 h-5" />} label="Sair" href="/" collapsed={!sidebarOpen} />
           </div>
         </aside>
 
         <main className="flex-1 overflow-y-auto px-4 sm:px-8 lg:px-10 py-7 max-w-7xl mx-auto w-full flex flex-col items-center justify-center">
-          <div className="bg-white p-8 sm:p-10 rounded-2xl border border-[#dfe4ee] shadow-sm max-w-md w-full text-center">
+          <div className="bg-white p-8 sm:p-10 rounded-2xl border border-[#dfe4ee] shadow-sm max-w-2xl w-full text-center">
             <h1 className="text-2xl font-extrabold text-[#050b33] mb-2 tracking-tight">
-              Relatório de Máquinas
+              Exportação de Relatórios
             </h1>
-            <p className="text-sm text-[#56617d] mb-8 font-medium">
-              Escolha o formato desejado para exportar os dados do laboratório.
+            <p className="text-sm text-[#56617d] mb-10 font-medium">
+              Escolha o módulo e o formato desejado para exportar os dados do laboratório.
             </p>
 
-            <div className="flex flex-col gap-4">
-              <button
-                onClick={handleExportPDF}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#050b33] px-5 py-4 text-sm font-extrabold text-white transition-all hover:bg-[#101d5e] hover:-translate-y-0.5"
-              >
-                <FileText className="w-5 h-5" />
-                GERAR RELATÓRIO PDF
-              </button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* COLUNA MÁQUINAS */}
+              <div className="flex flex-col gap-4 border-b md:border-b-0 md:border-r border-slate-100 pb-8 md:pb-0 md:pr-8">
+                <div className="flex items-center justify-center gap-2 text-slate-500 font-bold text-sm mb-2">
+                  <Wrench className="w-4 h-4" />
+                  <h3>MÁQUINAS</h3>
+                </div>
+                
+                <button
+                  onClick={handleExportPDF}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#050b33] px-5 py-4 text-sm font-extrabold text-white transition-all hover:bg-[#101d5e] hover:-translate-y-0.5"
+                >
+                  <FileText className="w-5 h-5" />
+                  RELATÓRIO PDF
+                </button>
 
-              <button
-                onClick={handleExportCSV}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#10b981] px-5 py-4 text-sm font-extrabold text-white shadow-sm shadow-emerald-500/20 transition-all hover:bg-[#059669] hover:-translate-y-0.5"
-              >
-                <Table className="w-5 h-5" />
-                GERAR RELATÓRIO CSV
-              </button>
+                <button
+                  onClick={handleExportCSV}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#10b981] px-5 py-4 text-sm font-extrabold text-white shadow-sm shadow-emerald-500/20 transition-all hover:bg-[#059669] hover:-translate-y-0.5"
+                >
+                  <Table className="w-5 h-5" />
+                  RELATÓRIO CSV
+                </button>
+              </div>
+
+              {/* COLUNA USUÁRIOS */}
+              <div className="flex flex-col gap-4 md:pl-4">
+                <div className="flex items-center justify-center gap-2 text-slate-500 font-bold text-sm mb-2">
+                  <Users className="w-4 h-4" />
+                  <h3>USUÁRIOS</h3>
+                </div>
+
+                <button
+                  onClick={handleExportUsersPDF}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#7000ff] px-5 py-4 text-sm font-extrabold text-white shadow-sm shadow-[#7000ff]/20 transition-all hover:bg-[#5a00cc] hover:-translate-y-0.5"
+                >
+                  <UserCheck className="w-5 h-5" />
+                  RELATÓRIO PDF
+                </button>
+
+                <button
+                  onClick={handleExportUsersCSV}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0ea5e9] px-5 py-4 text-sm font-extrabold text-white shadow-sm shadow-sky-500/20 transition-all hover:bg-[#0284c7] hover:-translate-y-0.5"
+                >
+                  <Table className="w-5 h-5" />
+                  RELATÓRIO CSV
+                </button>
+              </div>
             </div>
           </div>
         </main>
